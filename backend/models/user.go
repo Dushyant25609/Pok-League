@@ -12,6 +12,7 @@ type User struct {
 	Username         string         `gorm:"unique;not null" json:"username"`
 	Email            string         `gorm:"unique;not null" json:"email"`
 	PasswordHash     string         `gorm:"not null" json:"-"`
+	Token            string         `json:"token"`
 	DisplayName      string         `gorm:"size:100" json:"display_name,omitempty"`
 	ExperiencePoints int            `gorm:"default:0" json:"experience_points"`
 	IsActive         bool           `gorm:"default:true" json:"is_active"`

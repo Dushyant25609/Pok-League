@@ -9,7 +9,7 @@ import (
 
 var DB *gorm.DB
 
-func Connect() *gorm.DB {
+func Connect() {
 	dsn := os.Getenv("DB_URL")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -20,5 +20,5 @@ func Connect() *gorm.DB {
 		log.Fatal("Migration failed:", err)
 	}
 	fmt.Println("Database connected successfully")
-	return db
+	DB = db
 }
