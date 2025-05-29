@@ -3,6 +3,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 func IndexRoutes(r *gin.Engine) {
-	AuthRoutes(r)
-	PokemonRoutes(r)
+	api := r.Group("/api")
+	AuthRoutes(api)
+	PokemonRoutes(api)
+	ProtectedRoutes(api)
 }

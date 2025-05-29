@@ -7,8 +7,8 @@ import (
 
 var baseURL string = "/api/"
 
-func AuthRoutes(r *gin.Engine) {
-	auth := r.Group(baseURL + "auth")
+func AuthRoutes(r *gin.RouterGroup) {
+	auth := r.Group("/auth")
 	auth.POST("/signup", controllers.SignUp)
 	auth.POST("/login", controllers.Login)
 }

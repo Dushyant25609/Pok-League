@@ -5,7 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func PokemonRoutes(r *gin.Engine) {
-	pokemon := r.Group(baseURL + "pokemon")
-	pokemon.GET("", controllers.GetPaginatedPokemon)
+func PokemonRoutes(r *gin.RouterGroup) {
+	pokemon := r.Group("/pokemon")
+	pokemon.GET("/", controllers.GetPaginatedPokemon)
+	pokemon.GET("/gen/:generation", controllers.GetPokemonsByGeneration)
 }

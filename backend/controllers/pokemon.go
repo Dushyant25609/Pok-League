@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 
@@ -77,4 +78,55 @@ func GetPaginatedPokemon(c *gin.Context) {
 		"limit":      limit,
 		"totalPages": (total + int64(limit) - 1) / int64(limit),
 	})
+}
+
+// GET /api/pokemon/gen/:generation?page=1&limit=10
+
+func GetPokemonsByGeneration(c *gin.Context) {
+    generationStr := c.Param("generation")
+    pageStr := c.DefaultQuery("page", "1")
+    limitStr := c.DefaultQuery("limit", "10")
+    generation, err := strconv.Atoi(generationStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid generation"})
+        return
+    }
+
+    page, _ := strconv.Atoi(pageStr)
+    limit, _ := strconv.Atoi(limitStr)
+
+    if page < 1 {
+        page = 1
+    }
+    if limit < 1 {
+        limit = 10
+    }
+
+    offset := (page - 1) * limit
+
+    var pokemons []models.Pokemon
+
+    result := database.DB.Preload("Types").
+        Preload("BaseStats").
+        Where("generation = ?", generation).
+        Order("id ASC").
+        Limit(limit).
+        Offset(offset).
+        Find(&pokemons)
+
+    if result.Error != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+        return
+    }
+
+    var total int64
+    database.DB.Model(&models.Pokemon{}).Where("generation = ?", generation).Count(&total)
+
+    c.JSON(http.StatusOK, gin.H{
+        "data":       pokemons,
+        "limit":      limit,
+        "page":       page,
+        "total":      total,
+        "totalPages": int(math.Ceil(float64(total) / float64(limit))),
+    })
 }

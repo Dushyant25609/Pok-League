@@ -28,6 +28,7 @@ type Pokemon struct {
 	ID     uint   `gorm:"primaryKey"`
 	Name   string `gorm:"unique;not null"`
 	Rarity string
+	Generation uint
 
 	Types []Type  `gorm:"many2many:pokemon_types;"`
 	Moves []Moves `gorm:"many2many:pokemon_moves;"`
