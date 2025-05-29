@@ -21,7 +21,7 @@ func main() {
 			"message": "Welcome to PokeLeague Backend",
 		})
 	})
-	routes.AuthRoutes(r)
+	routes.IndexRoutes(r)
 
 	r.Run()
 }
