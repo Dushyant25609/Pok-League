@@ -7,4 +7,5 @@ func IndexRoutes(r *gin.Engine) {
 	AuthRoutes(api)
 	PokemonRoutes(api)
 	ProtectedRoutes(api)
+	SocketRoutes(api)
 }

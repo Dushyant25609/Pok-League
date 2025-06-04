@@ -10,3 +10,8 @@ func PokemonRoutes(r *gin.RouterGroup) {
 	pokemon.GET("/", controllers.GetPaginatedPokemon)
 	pokemon.GET("/gen/:generation", controllers.GetPokemonsByGeneration)
 }
+
+func PrivatePokemonRoutes(r *gin.RouterGroup) {
+	pokemon := r.Group("/pokemon")
+	pokemon.POST("/team/submit", controllers.SubmitSelectedTeam)
+}

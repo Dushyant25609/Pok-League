@@ -16,7 +16,6 @@ type OwnedPokemon struct {
 	Losses    int
 	TimesUsed int
 
-	User    User    `gorm:"foreignKey:UserID"`
 	Pokemon Pokemon `gorm:"foreignKey:PokemonID"`
 }
 

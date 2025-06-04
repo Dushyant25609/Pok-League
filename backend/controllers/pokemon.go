@@ -8,6 +8,7 @@ import (
 	"github.com/Dushyant25609/Pok-League/database"
 	"github.com/Dushyant25609/Pok-League/models"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 )
 
 type PokemonResponse struct {
@@ -129,4 +130,87 @@ func GetPokemonsByGeneration(c *gin.Context) {
         "total":      total,
         "totalPages": int(math.Ceil(float64(total) / float64(limit))),
     })
+}
+
+
+func GetAvailablePokemon(c *gin.Context) {
+	roomCode := c.Param("code")
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "20")
+
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	offset := (page - 1) * limit
+
+	var room models.BattleRoom
+	if err := database.DB.First(&room, "code = ?", roomCode).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+
+	baseQuery := database.DB.Model(&models.Pokemon{}).
+		Joins("LEFT JOIN pokemon_types ON pokemons.id = pokemon_types.pokemon_id").
+		Joins("LEFT JOIN types ON types.id = pokemon_types.type_id")
+
+	if len(room.Generations) > 0 {
+		baseQuery = baseQuery.Where("pokemons.generation = ANY(?)", pq.Array(room.Generations))
+	}
+
+	if !room.AllowLegendaries {
+		baseQuery = baseQuery.Where("pokemons.rarity != ?", "legendary")
+	}
+
+	if !room.AllowMythical {
+		baseQuery = baseQuery.Where("pokemons.rarity != ?", "mythical")
+	}
+
+	if len(room.BannedTypes) > 0 {
+		baseQuery = baseQuery.Where("types.name != ALL(?)", pq.Array(room.BannedTypes))
+	}
+
+	// Subquery to get Pokémon IDs only
+	var ids []uint
+	if err := baseQuery.
+		Distinct("pokemons.id").
+		Pluck("pokemons.id", &ids).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch Pokémon IDs"})
+		return
+	}
+
+	total := int64(len(ids))
+
+	var pokemons []models.Pokemon
+	if len(ids) > 0 {
+		if err := database.DB.Preload("Types").
+			Preload("BaseStats").
+			Where("id IN ?", ids).
+			Order("id ASC").
+			Offset(offset).
+			Limit(limit).
+			Find(&pokemons).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch Pokémon data"})
+			return
+		}
+	}
+	var response []PokemonResponse
+	for _, p := range pokemons {
+		types := make([]string, len(p.Types))
+		for i, t := range p.Types {
+			types[i] = t.Name
+		}
+
+		response = append(response, PokemonResponse{
+			ID:        p.ID,
+			Name:      p.Name,
+			Types:     types,
+			BaseStats: p.BaseStats,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"page":     page,
+		"limit":    limit,
+		"total":    total,
+		"pokemons": pokemons,
+	})
 }

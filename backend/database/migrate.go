@@ -17,6 +17,7 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&models.OwnedPokemon{},
 		&models.BaseStats{},
 		&models.BattleRoom{},
+		&models.SelectedPokemon{},
 	)
-	
+
 }

@@ -10,7 +10,8 @@ type UserStats struct {
 
 type PokemonStats struct {
 	ID           uint `gorm:"primaryKey"`
-	PokemonID    uint `gorm:"uniqueIndex"`
+	UserID       uint `gorm:"index"`
+	PokemonID    uint `gorm:"index"`
 	BattlesWon   int  `gorm:"default:0"`
 	BattlesLost  int  `gorm:"default:0"`
 	TotalBattles int  `gorm:"default:0"`

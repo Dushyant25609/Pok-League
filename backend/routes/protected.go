@@ -9,5 +9,6 @@ func ProtectedRoutes(r *gin.RouterGroup) {
     protected.Use(middleware.AuthMiddleware())
     {
         RoomRoutes(protected)
+        PrivatePokemonRoutes(protected)
     }
 }
