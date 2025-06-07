@@ -56,7 +56,8 @@ type BaseStats struct {
 
 type SelectedPokemon struct {
 	gorm.Model
-	UserID    string `json:"user_id"`    // the player selecting
+	Username  string `json:"username"`    // the player selecting
 	RoomID    string `json:"room_id"`    // the battle room
 	PokemonID uint   `json:"pokemon_id"` // reference to the actual Pokémon
+	HP        int    `json:"hp"`
 }

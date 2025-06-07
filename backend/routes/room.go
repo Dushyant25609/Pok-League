@@ -7,8 +7,8 @@ import (
 
 func RoomRoutes(router *gin.RouterGroup) {
 	r := router.Group("/room")
-	r.POST("/create", controllers.CreateRoom)
-	r.POST("/join", controllers.JoinRoom)
+	r.POST("/create/:username", controllers.CreateRoom)
+	r.POST("/join/:username", controllers.JoinRoom)
 	r.GET("/:code/pokemon",controllers.GetAvailablePokemon)
 	// other secured routes here
 }

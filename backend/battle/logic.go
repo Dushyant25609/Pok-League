@@ -3,7 +3,6 @@ package battle
 import (
 	"math"
 	"math/rand"
-	"time"
 
 	"github.com/Dushyant25609/Pok-League/models"
 	"gorm.io/gorm"
@@ -22,17 +21,18 @@ func CalculatePerformanceMultiplier(hpPercent float64) float64 {
 	}
 }
 
-func CalculateFirstAttacker(p1Speed, p2Speed int) int {
+func CalculateFirstAttacker(p1Speed, p2Speed int) (int, float64) {
 	totalSpeed := float64(p1Speed + p2Speed)
 	if totalSpeed == 0 {
-		return rand.Intn(2) + 1
+		n := rand.Intn(2) + 1
+		return n, float64(n)
 	}
 	p1Chance := (float64(p1Speed) / totalSpeed) * 100
 	r := rand.Float64() * 100
 	if r < p1Chance {
-		return 1
+		return 1, r
 	}
-	return 2
+	return 2, r
 }
 
 func CalculateTypeEffectiveness(db *gorm.DB, moveTypeID uint, defenderTypes []models.Type) float64 {
@@ -48,8 +48,9 @@ func CalculateTypeEffectiveness(db *gorm.DB, moveTypeID uint, defenderTypes []mo
 	return effectiveness
 }
 
-func ChooseBestMove(db *gorm.DB, attacker models.Pokemon, defender models.Pokemon) *models.Moves {
+func ChooseBestMove(db *gorm.DB, attacker models.Pokemon, defender models.Pokemon) (*models.Moves, float64) {
 	bestScore := -1.0
+	effect := 1.0
 	var bestMove *models.Moves
 
 	for _, move := range attacker.Moves {
@@ -58,22 +59,24 @@ func ChooseBestMove(db *gorm.DB, attacker models.Pokemon, defender models.Pokemo
 		if score > bestScore {
 			bestScore = score
 			bestMove = &move
+			effect = effectiveness
 		}
 	}
-	return bestMove
+	return bestMove, effect
 }
 
 func CalculateDamage(db *gorm.DB, attacker models.Pokemon, defender models.Pokemon, move *models.Moves) int {
-	hpPercent := float64(attacker.BaseStats.HP) / float64(attacker.BaseStats.HP) * 100 // Full HP assumed
+	// Calculate HP percentage based on current HP, not base HP
+	hpPercent := float64(attacker.CurrentHP) / float64(attacker.BaseStats.HP) * 100
 	perf := CalculatePerformanceMultiplier(hpPercent)
 	effectiveness := CalculateTypeEffectiveness(db, move.TypeID, defender.Types)
 	damage := int(effectiveness * float64(move.Power) * perf)
 	return damage
 }
 
-func CalculateDodge(attacker models.Pokemon, defender models.Pokemon, move *models.Moves) bool {
+func CalculateDodge(attacker models.Pokemon, defender models.Pokemon, move *models.Moves) (bool, float64, float64) {
 	speedDiff := defender.BaseStats.Speed - attacker.BaseStats.Speed
-	base := 10.0
+	base := 20.0
 	var mod float64
 
 	if speedDiff > 0 {
@@ -83,43 +86,13 @@ func CalculateDodge(attacker models.Pokemon, defender models.Pokemon, move *mode
 	}
 
 	dodgeChance := base + mod
-	hpPercent := float64(defender.BaseStats.HP) / float64(defender.BaseStats.HP) * 100 // Full HP assumed
+	// Calculate HP percentage based on current HP, not base HP
+	hpPercent := float64(defender.CurrentHP) / float64(defender.BaseStats.HP) * 100
 	dodgeChance *= CalculatePerformanceMultiplier(hpPercent)
 
 	if dodgeChance < 0 {
-		return false
+		return false, dodgeChance, 0
 	}
-	return rand.Float64()*100 < dodgeChance
-}
-
-func ExecuteBattleTurn(db *gorm.DB, p1, p2 *models.Pokemon) {
-	rand.Seed(time.Now().UnixNano())
-	first := CalculateFirstAttacker(p1.BaseStats.Speed, p2.BaseStats.Speed)
-	var attacker, defender *models.Pokemon
-	if first == 1 {
-		attacker = p1
-		defender = p2
-	} else {
-		attacker = p2
-		defender = p1
-	}
-
-	move := ChooseBestMove(db, *attacker, *defender)
-	if move == nil {
-		return
-	}
-
-	if !CalculateDodge(*attacker, *defender, move) {
-		damage := CalculateDamage(db, *attacker, *defender, move)
-		defender.BaseStats.HP -= damage
-	}
-}
-
-
-func DecideTurnOrder(p1, p2 *models.Pokemon) (*models.Pokemon, *models.Pokemon) {
-	first := CalculateFirstAttacker(p1.BaseStats.Speed, p2.BaseStats.Speed)
-	if first == 1 {
-		return p1, p2
-	}
-	return p2, p1
+	n := rand.Float64() * 100
+	return n < dodgeChance, dodgeChance, n
 }

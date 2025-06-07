@@ -3,7 +3,6 @@ package controllers
 import (
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/Dushyant25609/Pok-League/database"
@@ -41,8 +40,10 @@ func handleTeamSelectionTimeout(room models.BattleRoom, roomCode string) {
 	time.Sleep(time.Until(room.TeamSelectionDeadline))
 
 	var teamHost, teamGuest []models.SelectedPokemon
-	database.DB.Where("room_id = ? AND user_id = ?", room.ID, room.HostID).Find(&teamHost)
-	database.DB.Where("room_id = ? AND user_id = ?", room.ID, room.GuestID).Find(&teamGuest)
+	database.DB.Where("room_id = ? AND username = ?", roomCode, room.HostUsername).Find(&teamHost)
+	if room.GuestUsername != nil {
+		database.DB.Where("room_id = ? AND username = ?", roomCode, *room.GuestUsername).Find(&teamGuest)
+	}
 
 	if len(teamHost) == 0 && len(teamGuest) == 0 && !room.TimerExtended {
 		timeExtension := 2 * time.Minute
@@ -64,10 +65,10 @@ func handleTeamSelectionTimeout(room models.BattleRoom, roomCode string) {
 	}
 
 	if len(teamHost) < 6 {
-		utils.FillWithRandomPokemon(room.HostID, room.ID, 6-len(teamHost))
+		utils.FillWithRandomPokemon(room.HostUsername, roomCode, database.DB)
 	}
-	if room.GuestID != nil && len(teamGuest) < 6 {
-		utils.FillWithRandomPokemon(*room.GuestID, room.ID, 6-len(teamGuest))
+	if room.GuestUsername != nil && len(teamGuest) < 6 {
+		utils.FillWithRandomPokemon(*room.GuestUsername, roomCode, database.DB)
 	}
 
 	for _, c := range RoomConnections[roomCode] {
@@ -79,16 +80,9 @@ func handleTeamSelectionTimeout(room models.BattleRoom, roomCode string) {
 
 
 func SubmitSelectedTeam(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user not found in context"})
-		return
-	}
-
 	// Extract the user ID from the user object
-	userObj := user.(models.User)
-	ID := strconv.FormatUint(uint64(userObj.ID), 10)
 	var payload struct {
+		Username   string `json:"username"`
 		RoomCode   string `json:"room_code"`
 		PokemonIDs []uint `json:"pokemon_ids"`
 	}
@@ -117,11 +111,6 @@ func SubmitSelectedTeam(c *gin.Context) {
 	var room models.BattleRoom
 	if err := database.DB.First(&room, "code = ?", payload.RoomCode).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-		return
-	}
-
-	if ID != room.HostID && ID != *room.GuestID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You are not part of this room"})
 		return
 	}
 
@@ -167,19 +156,20 @@ func SubmitSelectedTeam(c *gin.Context) {
 	}
 
 	// Save or overwrite selected team
-	database.DB.Where("room_id = ? AND user_id = ?", room.ID, ID).Delete(&models.SelectedPokemon{})
+	database.DB.Where("room_id = ? AND username = ?", payload.RoomCode, payload.Username).Delete(&models.SelectedPokemon{})
 	for _, p := range pokemons {
 		database.DB.Create(&models.SelectedPokemon{
-			UserID:    ID,
-			RoomID:    room.ID,
+			Username:  payload.Username,
+			RoomID:    payload.RoomCode,
 			PokemonID: p.ID,
+			HP:        p.CurrentHP,
 		})
 	}
 
 	// ✅ Check if both players submitted
 	var hostCount, guestCount int64
-	database.DB.Model(&models.SelectedPokemon{}).Where("room_id = ? AND user_id = ?", room.ID, room.HostID).Count(&hostCount)
-	database.DB.Model(&models.SelectedPokemon{}).Where("room_id = ? AND user_id = ?", room.ID, *room.GuestID).Count(&guestCount)
+	database.DB.Model(&models.SelectedPokemon{}).Where("room_id = ? AND username = ?", payload.RoomCode, room.HostUsername).Count(&hostCount)
+	database.DB.Model(&models.SelectedPokemon{}).Where("room_id = ? AND username = ?", payload.RoomCode, *room.GuestUsername).Count(&guestCount)
 
 	if hostCount == 6 && guestCount == 6 {
 		lobbyMu.Lock()
@@ -190,11 +180,11 @@ func SubmitSelectedTeam(c *gin.Context) {
 			startMsg := gin.H{"event": "start_battle"}
 
 			for _, lc := range conns {
-				if lc.userID == room.HostID || (room.GuestID != nil && lc.userID == *room.GuestID) {
-					lc.conn.WriteJSON(startMsg)
-					lc.conn.Close()
-				}
+			if lc.username == room.HostUsername || (room.GuestUsername != nil && lc.username == *room.GuestUsername) {
+				lc.conn.WriteJSON(startMsg)
+				lc.conn.Close()
 			}
+		}
 			// Clean up memory
 			lobbyMu.Lock()
 			delete(lobbyConns, payload.RoomCode)
@@ -203,4 +193,17 @@ func SubmitSelectedTeam(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Team submitted successfully"})
+}
+func RemoveLoserPokemon(pokemonID uint, username string, roomCode string) {
+	result := database.DB.Where("pokemon_id = ? AND username = ? AND room_id = ?", pokemonID, username, roomCode).
+		Delete(&models.SelectedPokemon{})
+
+	if result.Error != nil {
+		log.Printf("Error removing loser Pokémon: %v\n", result.Error)
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		log.Printf("No Pokémon removed for username=%s, pokemon_id=%d, room_code=%s\n", username, pokemonID, roomCode)
+	}
 }

@@ -18,6 +18,13 @@ type PokemonResponse struct {
     BaseStats models.BaseStats `json:"baseStats"`
 }
 
+type PokemonStatsResponse struct{
+	ID        uint            `json:"pokemon_id"`
+    Name      string          `json:"name"`
+    Types     []string        `json:"types"`
+    Stats models.PokemonStats `json:"Stats"`
+}
+
 
 func GetPaginatedPokemon(c *gin.Context) {
 	// Query params with defaults
@@ -45,10 +52,7 @@ func GetPaginatedPokemon(c *gin.Context) {
 	// Fetch paginated Pokémon
 	result := database.DB.
 		Preload("Types").
-		Preload("BaseStats").
-		Preload("Stats").
-		Preload("Moves").
-		Preload("Moves.Type"). 
+		Preload("BaseStats"). 
 		Order("id ASC").// This is the fix for move Type being empty
 		Limit(limit).
 		Offset(offset).
@@ -122,9 +126,24 @@ func GetPokemonsByGeneration(c *gin.Context) {
 
     var total int64
     database.DB.Model(&models.Pokemon{}).Where("generation = ?", generation).Count(&total)
+	
+	var response []PokemonResponse
+    for _, p := range pokemons {
+        types := make([]string, len(p.Types))
+        for i, t := range p.Types {
+            types[i] = t.Name
+        }
+
+        response = append(response, PokemonResponse{
+            ID:        p.ID,
+            Name:      p.Name,
+            Types:     types,
+            BaseStats: p.BaseStats,
+        })
+    }
 
     c.JSON(http.StatusOK, gin.H{
-        "data":       pokemons,
+        "data":       response,
         "limit":      limit,
         "page":       page,
         "total":      total,
@@ -136,7 +155,7 @@ func GetPokemonsByGeneration(c *gin.Context) {
 func GetAvailablePokemon(c *gin.Context) {
 	roomCode := c.Param("code")
 	pageStr := c.DefaultQuery("page", "1")
-	limitStr := c.DefaultQuery("limit", "20")
+	limitStr := c.DefaultQuery("limit", "10")
 
 	page, _ := strconv.Atoi(pageStr)
 	limit, _ := strconv.Atoi(limitStr)
@@ -213,4 +232,60 @@ func GetAvailablePokemon(c *gin.Context) {
 		"total":    total,
 		"pokemons": pokemons,
 	})
+}
+
+func GetPokemonStats(c *gin.Context) {
+	var pokemons []models.Pokemon
+
+	if err := database.DB.
+		Model(&models.Pokemon{}).
+		Select("pokemons.*, pokemon_stats.battles_won, pokemon_stats.battles_lost, pokemon_stats.total_battles").
+		Joins("INNER JOIN pokemon_stats ON pokemon_stats.pokemon_id = pokemons.id").
+		Preload("Types").
+		Preload("Stats").
+		Order("pokemon_stats.battles_won DESC").
+		Find(&pokemons).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var response []PokemonStatsResponse
+	for _, p := range pokemons {
+		types := make([]string, len(p.Types))
+		for i, t := range p.Types {
+			types[i] = t.Name
+		}
+		response = append(response, PokemonStatsResponse{
+			ID:    p.ID,
+			Name:  p.Name,
+			Types: types,
+			Stats: p.Stats,
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+
+
+
+func GetPokemonByID(c *gin.Context) {
+	id := c.Param("id")
+	ID, err := strconv.Atoi(id)
+	if err != nil {
+		c.JSON(http.StatusNoContent, gin.H{"error": "Id not found"})
+	}
+
+	var stats models.Pokemon
+	if err := database.DB.
+		Preload("Types").
+		Preload("BaseStats").
+		Preload("Stats").
+		Preload("Moves").
+		Preload("Moves.Type").
+		First(&stats, ID).Error; err!= nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Pokemon not found"})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
 }

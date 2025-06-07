@@ -8,8 +8,8 @@ import (
 
 type BattleRoom struct {
 	ID               string         `gorm:"primaryKey" json:"id"`
-	HostID           string         `json:"host_id"`
-	GuestID 		*string 		`json:"guest_id"`
+	HostUsername     string         `json:"host_username"`
+	GuestUsername 	*string 		`json:"guest_username"`
 	Code             string         `gorm:"uniqueIndex" json:"code"`
 	Generations      pq.Int64Array  `gorm:"type:integer[]" json:"generations"` 
 	AllowLegendaries bool           `json:"allow_legendaries"`
@@ -31,6 +31,6 @@ type BattleRoom struct {
 type TeamSelection struct {
 	ID         string   `gorm:"primaryKey"`
 	BattleRoomID string `json:"battle_room_id"`
-	UserID     string   `json:"user_id"`
+	Username    string   `json:"username"`
 	PokemonIDs []int    `gorm:"type:integer[]"`
 }

@@ -4,8 +4,7 @@ import (
 )
 func IndexRoutes(r *gin.Engine) {
 	api := r.Group("/api")
-	AuthRoutes(api)
 	PokemonRoutes(api)
-	ProtectedRoutes(api)
 	SocketRoutes(api)
+	RoomRoutes(api)
 }

@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/Dushyant25609/Pok-League/database"
@@ -28,16 +27,12 @@ type CreateRoomResponse struct {
 }
 
 func CreateRoom(c *gin.Context) {
-	// Get the complete user object from context
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user not found in context"})
+	// Get username from context or query parameter
+	username := c.Param("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username is required"})
 		return
 	}
-
-	// Extract the user ID from the user object
-	userObj := user.(models.User)
-	userID := strconv.FormatUint(uint64(userObj.ID), 10)
 
 	var req CreateRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -47,7 +42,7 @@ func CreateRoom(c *gin.Context) {
 
 	room := models.BattleRoom{
 		ID:                    uuid.New().String(),
-		HostID:                userID,
+		HostUsername:          username,
 		Code:                  generateRoomCode(),
 		Generations:           pq.Int64Array(req.Generations),
 		AllowLegendaries:      req.AllowLegendaries,
@@ -81,23 +76,19 @@ type JoinRoomRequest struct {
 }
 
 type JoinRoomResponse struct {
-	RoomID  string `json:"room_id"`
-	HostID  string `json:"host_id"`
-	GuestID string `json:"guest_id"`
-	Status  string `json:"status"`
+	RoomID       string `json:"room_id"`
+	HostUsername string `json:"host_username"`
+	GuestUsername string `json:"guest_username"`
+	Status       string `json:"status"`
 }
 
 func JoinRoom(c *gin.Context) {
-	// Get the complete user object from context
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user not found in context"})
+	// Get username from context or query parameter
+	username := c.Param("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username is required"})
 		return
 	}
-
-	// Extract the user ID from the user object
-	userObj := user.(models.User)
-	userID := strconv.FormatUint(uint64(userObj.ID), 10)
 
 	var req JoinRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -111,12 +102,12 @@ func JoinRoom(c *gin.Context) {
 		return
 	}
 
-	if room.HostID == userID {
+	if room.HostUsername == username {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "You cannot join your own room"})
 		return
 	}
 
-	if room.GuestID != nil {
+	if room.GuestUsername != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Room already has a guest"})
 		return
 	}
@@ -126,7 +117,7 @@ func JoinRoom(c *gin.Context) {
 		return
 	}
 
-	room.GuestID = ptr(userID)
+	room.GuestUsername = ptr(username)
 	room.Status = "ready" // optional, depends on your flow
 
 	if err := database.DB.Save(&room).Error; err != nil {
@@ -135,10 +126,10 @@ func JoinRoom(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, JoinRoomResponse{
-		RoomID:  room.ID,
-		HostID:  room.HostID,
-		GuestID: *room.GuestID,
-		Status:  room.Status,
+		RoomID:       room.ID,
+		HostUsername: room.HostUsername,
+		GuestUsername: *room.GuestUsername,
+		Status:       room.Status,
 	})
 }
 
@@ -150,59 +141,4 @@ func ptr(s string) *string {
 type TeamSubmitRequest struct {
 	RoomCode   string `json:"room_code" binding:"required"`
 	PokemonIDs []int  `json:"pokemon_ids" binding:"required,len=6"`
-}
-
-func SubmitTeam(c *gin.Context) {
-	// Get the complete user object from context
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user not found in context"})
-		return
-	}
-
-	// Extract the user ID from the user object
-	userObj := user.(models.User)
-	userID := strconv.FormatUint(uint64(userObj.ID), 10)
-
-	var req TeamSubmitRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	var room models.BattleRoom
-	if err := database.DB.Where("code = ?", req.RoomCode).First(&room).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-		return
-	}
-	if time.Now().After(room.TeamSelectionDeadline) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Team selection time has expired"})
-		return
-	}
-
-	// Save team selection
-	selection := models.TeamSelection{
-		ID:           uuid.New().String(),
-		BattleRoomID: room.ID,
-		UserID:       userID,
-		PokemonIDs:   req.PokemonIDs,
-	}
-
-	if err := database.DB.Create(&selection).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save team"})
-		return
-	}
-
-	// Check if both players have submitted
-	var count int64
-	database.DB.Model(&models.TeamSelection{}).
-		Where("battle_room_id = ?", room.ID).
-		Count(&count)
-
-	if count == 2 {
-		room.Status = "ready"
-		database.DB.Save(&room)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Team submitted", "status": room.Status})
 }

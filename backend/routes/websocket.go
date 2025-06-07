@@ -8,7 +8,7 @@ import (
 func SocketRoutes(router *gin.RouterGroup) {
 	r := router.Group("/ws")
 	r.GET("/team-selection/:code", controllers.TeamSelectionSocket)
-	r.GET("/battle/:code", controllers.BattleSocket)
+	r.GET("/battle/:roomCode", controllers.BattleSocket)
 	// Removing duplicate route that causes conflict
 	r.GET("lobby/:roomCode", controllers.LobbySocket)
 	// other secured routes here

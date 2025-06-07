@@ -1,17 +1,26 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
-	"strconv"
+	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/Dushyant25609/Pok-League/battle"
 	"github.com/Dushyant25609/Pok-League/database"
 	"github.com/Dushyant25609/Pok-League/models"
-	"github.com/Dushyant25609/Pok-League/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
+
+func safeWriteJSON(mu *sync.Mutex, conn *websocket.Conn, data interface{}) {
+	mu.Lock()
+	defer mu.Unlock()
+	conn.WriteJSON(data)
+}
+
+
 
 type pendingBattle struct {
 	mu      sync.Mutex
@@ -19,59 +28,63 @@ type pendingBattle struct {
 	sub2    *submission
 	conn1   *websocket.Conn
 	conn2   *websocket.Conn
+	mu1     sync.Mutex  // mutex for conn1
+	mu2     sync.Mutex  // mutex for conn2
 	started bool
+	dialog  *battle.BattleDialog
 }
 
+
 type submission struct {
-	UserID    string
-	PokemonID uint
+	Username  string `json:"username"`
+	PokemonID uint   `json:"pokemon_id"`
 	PokeData  models.Pokemon // loaded full record (Types, Moves, BaseStats)
 }
 
-// In-memory store for pending battles: roomCode → *pendingBattle
+// In‐memory map: roomCode → *pendingBattle
 var battlesMu sync.Mutex
 var battles = make(map[string]*pendingBattle)
 
-// BattleSocket: each client connects to `/ws/battle/:roomCode` and sends { user_id, pokemon_id }.
+// BattleSocket: each client connects to /ws/battle/:roomCode and sends { username, pokemon_id }.
 // Once both have sent, we run the fight and push turn updates to both connections.
 func BattleSocket(c *gin.Context) {
 	roomCode := c.Param("roomCode")
 
+	// 1) Upgrade to WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println("BattleSocket: failed to upgrade:", err)
 		return
 	}
+	// ✂ No defer conn.Close() here—closing will happen inside the battle goroutine.
 
-	// Read this player's submission
+	// 2) Read initial JSON payload
 	var req struct {
-		Token     string `json:"token"`
+		Username  string `json:"username"`
 		PokemonID uint   `json:"pokemon_id"`
 	}
-	if Connerr := conn.ReadJSON(&req); Connerr != nil {
-		log.Println("BattleSocket JSON parse error:", Connerr)
-		conn.WriteJSON(gin.H{"error": "Invalid JSON format. Please check for syntax errors like trailing commas."})
+	if jsonErr := conn.ReadJSON(&req); jsonErr != nil {
+		log.Println("BattleSocket JSON parse error:", jsonErr)
+		conn.WriteJSON(gin.H{
+			"error": "Invalid JSON format. Please check for syntax errors like trailing commas.",
+		})
+		conn.Close()
 		return
 	}
 
-	user, err := utils.GetUserFromToken(req.Token)
-	if err != nil {
-		conn.WriteJSON(gin.H{"error": "Invalid token"})
-		return
-	}
-	ID := strconv.FormatUint(uint64(user.ID), 10)
-
-	// Load full Pokémon data now
+	// 3) Load full Pokémon record (Types, Moves, BaseStats)
 	var poke models.Pokemon
-	if err := database.DB.Preload("Types").
+	if err := database.DB.
+		Preload("Types").
 		Preload("Moves.Type").
 		Preload("BaseStats").
 		First(&poke, req.PokemonID).Error; err != nil {
 		conn.WriteJSON(gin.H{"error": "Pokémon not found"})
+		conn.Close()
 		return
 	}
 
-	// Register this submission in the in-memory map
+	// 4) Insert into battles[roomCode]
 	battlesMu.Lock()
 	pb, exists := battles[roomCode]
 	if !exists {
@@ -82,152 +95,259 @@ func BattleSocket(c *gin.Context) {
 
 	pb.mu.Lock()
 	if pb.started {
-		// This room already started or finished the fight—reject further connections
+		// If already started, reject
 		pb.mu.Unlock()
 		conn.WriteJSON(gin.H{"error": "Battle already in progress or completed"})
+		conn.Close()
 		return
 	}
 
-	// Determine if this is the first or second submission
 	if pb.sub1 == nil {
 		pb.sub1 = &submission{
-			UserID:    ID,
+			Username:  req.Username,
 			PokemonID: req.PokemonID,
 			PokeData:  poke,
 		}
 		pb.conn1 = conn
 	} else if pb.sub2 == nil {
-		// If the same user tries to submit twice, reject
-		if pb.sub1.UserID == ID {
+		// Prevent the same user from submitting twice
+		if pb.sub1.Username == req.Username {
 			pb.mu.Unlock()
 			conn.WriteJSON(gin.H{"error": "You already submitted your Pokémon"})
+			conn.Close()
 			return
 		}
 		pb.sub2 = &submission{
-			UserID:    ID,
+			Username:  req.Username,
 			PokemonID: req.PokemonID,
 			PokeData:  poke,
 		}
 		pb.conn2 = conn
 	} else {
-		// Already have two submissions
+		// Two submissions already exist → reject
 		pb.mu.Unlock()
 		conn.WriteJSON(gin.H{"error": "Both Pokémon already submitted"})
+		conn.Close()
 		return
 	}
 	pb.mu.Unlock()
 
-
-	// Wait until we have both submissions, then run the battle
+	// 5) Launch(—or re‐launch) the battle logic in a goroutine
 	go func() {
-		pb.mu.Lock()
-		defer pb.mu.Unlock()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Println("Recovered from panic in battle goroutine:", r)
+			}
+		}()
 
+		// A) Under lock, check if both players are present and not yet started.
+		pb.mu.Lock()
 		if pb.sub1 == nil || pb.sub2 == nil || pb.started {
-			return // not ready or already started
+			pb.mu.Unlock()
+			return
 		}
 		pb.started = true
 
-		if pb.sub1 != nil || pb.sub2!= nil {
-			if pb.sub1 != nil {
-				var selectedPokemon models.SelectedPokemon
-				result := database.DB.Where("room_id = ? AND user_id = ? AND pokemon_id = ?", roomCode, pb.sub1.UserID, pb.sub1.PokemonID).First(&selectedPokemon)
-				if result.Error != nil || result.RowsAffected == 0 {
-					pb.mu.Unlock()
-					pb.conn1.WriteJSON(gin.H{"error": "You must select a Pokémon from your submitted team"})
-				}
+		sub1 := pb.sub1
+		sub2 := pb.sub2
+		conn1 := pb.conn1
+		conn2 := pb.conn2
+		pb.mu.Unlock()
+
+		// B) Validate each user's Pokémon is actually in their submitted team.
+		validate := func(username string, pid uint, wsConn *websocket.Conn) bool {
+			var selected models.SelectedPokemon
+			// ● Use "username = ?" because your table now stores username (not user_id).
+			result := database.DB.
+				Where("room_id = ? AND username = ? AND pokemon_id = ? AND deleted_at IS NULL", roomCode, username, pid).
+				First(&selected)
+
+			if result.Error != nil || result.RowsAffected == 0 {
+				wsConn.WriteJSON(gin.H{"error": "You must select a Pokémon from your submitted team"})
+				return false
 			}
-			if pb.sub2 != nil {
-				var selectedPokemon models.SelectedPokemon
-				result := database.DB.Where("room_id = ? AND user_id = ? AND pokemon_id = ?", roomCode, pb.sub2.UserID, pb.sub2.PokemonID).First(&selectedPokemon)
-				if result.Error != nil || result.RowsAffected == 0 {
-					pb.mu.Unlock()
-					pb.conn2.WriteJSON(gin.H{"error": "You must select a Pokémon from your submitted team"})
-				}
-			}
+			return true
+		}
+		if !validate(sub1.Username, sub1.PokemonID, conn1) ||
+			!validate(sub2.Username, sub2.PokemonID, conn2) {
+			// Validation failed for one (or both) players, so abort.
+			conn1.Close()
+			conn2.Close()
+			battlesMu.Lock()
+			delete(battles, roomCode)
 			return
 		}
 
-		p1 := &pb.sub1.PokeData
-		p2 := &pb.sub2.PokeData
+		// C) Initialize HP & decide best moves
+		p1 := &sub1.PokeData
+		p2 := &sub2.PokeData
+		var poke1, poke2 int
+		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub1.Username, sub1.PokemonID).First(&poke1, "hp")
+		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub2.Username, sub2.PokemonID).First(&poke2, "hp")
 
-		// Initialize HP
-		p1.CurrentHP = p1.BaseStats.HP
-		p2.CurrentHP = p2.BaseStats.HP
+		p1.CurrentHP = poke1
+		if p1.CurrentHP == 0 {
+			p1.CurrentHP = p1.BaseStats.HP
+		}
+		p2.CurrentHP = poke2
+		if p2.CurrentHP == 0 {
+			p2.CurrentHP = p2.BaseStats.HP
+		}
 
-		bestMove1 := battle.ChooseBestMove(database.DB, *p1, *p2)
-		bestMove2 := battle.ChooseBestMove(database.DB, *p2, *p1)
+		if(p1.Name == p2.Name) {
+			p1.Name = sub1.Username + "`s " + p1.Name
+			p2.Name = sub2.Username + "`s " + p2.Name
+		}
 
-		// Turn-by-turn loop
-		for p1.CurrentHP > 0 && p2.CurrentHP > 0 {
-			attacker, defender, moveUsed := func() (a, d *models.Pokemon, m *models.Moves) {
-				if battle.CalculateFirstAttacker(p1.BaseStats.Speed, p2.BaseStats.Speed) == 1 {
-					return p1, p2, bestMove1
+		bestMove1, effect1 := battle.ChooseBestMove(database.DB, *p1, *p2)
+		bestMove2, effect2 := battle.ChooseBestMove(database.DB, *p2, *p1)
+
+		// Create a dialog channel for the battle
+		dialog := battle.NewBattleDialog()
+		pb.dialog = dialog
+
+		// Start a goroutine to forward dialog messages to both players
+		go func() {
+			for msg := range dialog.Messages {
+				dialogUpdate := gin.H{
+					"event":     "dialog_update",
+					"text":      msg.Text,
+					"type":      msg.Type,
+					"timestamp": msg.Timestamp,
 				}
-				return p2, p1, bestMove2
+				safeWriteJSON(&pb.mu1, conn1, dialogUpdate)
+				safeWriteJSON(&pb.mu2, conn2, dialogUpdate)
+			}
+		}()
+		// Send battle start message
+		dialog.SendCustomMessage(fmt.Sprintf("Battle between %s and %s is about to begin!", p1.Name, p2.Name), "battle_start")
+		time.Sleep(1 * time.Second)
+
+		// D) Turn‐by‐turn battle loop
+		for p1.CurrentHP > 0 && p2.CurrentHP > 0 {
+			attacker, defender, moveUsed, percent, effect := func() (*models.Pokemon, *models.Pokemon, *models.Moves, float64, float64) {
+				n, percent := battle.CalculateFirstAttacker(p1.BaseStats.Speed, p2.BaseStats.Speed)
+				if  n == 1 {
+					return p1, p2, bestMove1, percent, effect1
+				}
+				return p2, p1, bestMove2, percent, effect2
 			}()
 
-			// Recompute dodge for this turn
 			attack := "dodged"
 			damage := 0
-			if !battle.CalculateDodge(*attacker, *defender, moveUsed) {
+			dodge, dodgeChance, dodgepercent := battle.CalculateDodge(*attacker, *defender, moveUsed)
+			
+			// Determine if this is a critical hit (for narration purposes)
+			critical := false
+			if !dodge && rand.Float64() < 0.15 { // 15% chance of critical hit
+				critical = true
+			}
+
+			if !dodge {
 				dmg := battle.CalculateDamage(database.DB, *attacker, *defender, moveUsed)
+				damage = (dmg/5)
 				attack = "damaged"
-				damage = dmg
-				defender.CurrentHP -= dmg
+				defender.CurrentHP -= damage
 				if defender.CurrentHP < 0 {
 					defender.CurrentHP = 0
 				}
 			}
 
-			// Push a turn update to **both** clients
+			// Narrate the battle turn
+			dialog.NarrateBattleTurn(attacker, defender, moveUsed, dodge, damage, critical)
+
 			update := gin.H{
 				"event":    "turn_update",
 				"attacker": attacker.Name,
 				"defender": defender.Name,
 				"move":     moveUsed.Name,
 				"hp1":      p1.CurrentHP,
-				"attack":   attack, // or "dodged"
+				"attack":   attack,
 				"damage":   damage,
 				"hp2":      p2.CurrentHP,
+				"first":    percent,
+				"effective": effect,
+				"dodgeChance": dodgeChance,
+				"dodgepercent": dodgepercent,
+				"dodge": dodge,
+				"critical": critical,
 			}
-			pb.conn1.WriteJSON(update)
-			pb.conn2.WriteJSON(update)
-
+			safeWriteJSON(&pb.mu1, conn1, update)
+			safeWriteJSON(&pb.mu2, conn2, update)
+			
+			// Add a short delay between turns for dramatic effect
+			time.Sleep(2 * time.Second)
 		}
 
-		// Determine winner
-		var winnerUser, winnerPokemon string
+		// E) Declare winner
+		
+		var winnerUser, winnerPokemonName, loserUser, loserPokemonName string
+		var loserPokemon, winnerPokemon uint
+		var winnerHP int
 		if p1.CurrentHP > 0 {
-			winnerUser = pb.sub1.UserID
-			winnerPokemon = p1.Name
+			winnerUser = sub1.Username
+			winnerPokemonName = p1.Name
+			winnerPokemon = p1.ID
+			winnerHP = p1.CurrentHP
+			loserPokemon = p2.ID
+			loserUser = sub2.Username
+			loserPokemonName = p2.Name
 		} else {
-			winnerUser = pb.sub2.UserID
-			winnerPokemon = p2.Name
+			winnerUser = sub2.Username
+			winnerPokemonName = p2.Name
+			winnerPokemon = p2.ID
+			winnerHP = p2.CurrentHP
+			loserPokemon = p1.ID
+			loserUser = sub1.Username
+			loserPokemonName = p1.Name
 		}
+		
+		// Narrate the battle end
+		dialog.NarrateBattleEnd(winnerPokemonName, loserPokemonName)
+		
+		RemoveLoserPokemon(loserPokemon, loserUser, roomCode)
+		updatePostBattleStats(p1.ID, p1.CurrentHP > 0)
+		updatePostBattleStats(p2.ID, p2.CurrentHP > 0)
+		UpdateHpLeft(winnerPokemon, winnerHP, winnerUser, roomCode)
+		
 
-		// Update stats in DB
-		updatePostBattleStats(pb.sub1.UserID, p1.ID, p1.CurrentHP > 0)
-		updatePostBattleStats(pb.sub2.UserID, p2.ID, p2.CurrentHP > 0)
-
-		// Push final result
 		result := gin.H{
 			"event":          "battle_result",
 			"winner_user":    winnerUser,
-			"winner_pokemon": winnerPokemon,
+			"winner_pokemon": winnerPokemonName,
 			"hp1":            p1.CurrentHP,
 			"hp2":            p2.CurrentHP,
 		}
-		pb.conn1.WriteJSON(result)
-		pb.conn2.WriteJSON(result)
+		safeWriteJSON(&pb.mu1, conn1, result)
+		safeWriteJSON(&pb.mu2, conn2, result)
+		
+		// Wait a moment for final dialog messages to be sent
+		time.Sleep(3 * time.Second)
 
-		// Clean up
-		pb.conn1.Close()
-		pb.conn2.Close()
+		// F) Clean up: close dialog channel, both WebSockets, and delete room entry
+		if pb.dialog != nil {
+			pb.dialog.Close()
+		}
+		conn1.Close()
+		conn2.Close()
+
 		battlesMu.Lock()
 		delete(battles, roomCode)
 		battlesMu.Unlock()
 	}()
 
-	// Keep this connection open until the battle is done (or error)
+	// 6) Return immediately.  The goroutine keeps each socket open until battle concludes.
+	return
+}
+
+func UpdateHpLeft(pokemon_id uint, hp int, username string, roomCode string) {
+	var selected models.SelectedPokemon
+	result := database.DB.
+		Where("room_id =? AND username =? AND pokemon_id =? AND deleted_at IS NULL", roomCode, username, pokemon_id).
+		First(&selected)
+	if result.Error!= nil || result.RowsAffected == 0 {
+		return
+	}
+	selected.HP = hp
+	database.DB.Save(&selected)
 }
