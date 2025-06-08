@@ -1,3 +1,3 @@
 export enum Audio {
-  INTRO = "/intro.mp3",
+  INTRO = '/intro.mp3',
 }

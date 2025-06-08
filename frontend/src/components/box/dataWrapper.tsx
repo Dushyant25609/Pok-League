@@ -1,9 +1,9 @@
 // components/wrapper/DataBoxWrapper.tsx
-"use client";
+'use client';
 
-import { FC, useState } from "react";
-import DataBox from "@/components/box/data";
-import { highlight } from "@/types/highlight";
+import { FC, useState } from 'react';
+import DataBox from '@/components/box/data';
+import { highlight } from '@/types/highlight';
 
 interface DataBoxWrapperProps {
   features: highlight[];

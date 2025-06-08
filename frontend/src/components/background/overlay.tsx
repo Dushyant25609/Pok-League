@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { motion } from "framer-motion";
-import { darkenAnimation } from "@/motion/opacity";
-import BackgroundAudio from "./audio";
-import { FC } from "react";
+import { motion } from 'framer-motion';
+import { darkenAnimation } from '@/motion/opacity';
+import BackgroundAudio from './audio';
+import { FC } from 'react';
 
 interface BackgroundOverlayProps {
   src: string;

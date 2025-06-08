@@ -1,17 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { SpeakerWaveIcon, SpeakerXMarkIcon } from "@heroicons/react/24/solid";
+import { useEffect, useRef, useState } from 'react';
+import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/solid';
 
 type BackgroundAudioProps = {
   src: string;
   volume?: number;
 };
 
-export default function BackgroundAudio({
-  src,
-  volume = 0.2,
-}: BackgroundAudioProps) {
+export default function BackgroundAudio({ src, volume = 0.2 }: BackgroundAudioProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -23,19 +20,19 @@ export default function BackgroundAudio({
           // play failed, maybe due to browser policy
         });
         setHasPlayed(true);
-        window.removeEventListener("click", playAudio);
-        window.removeEventListener("touchstart", playAudio);
+        window.removeEventListener('click', playAudio);
+        window.removeEventListener('touchstart', playAudio);
       }
     }
 
     // Attach event listeners for user interaction to start audio
-    window.addEventListener("click", playAudio);
-    window.addEventListener("touchstart", playAudio);
+    window.addEventListener('click', playAudio);
+    window.addEventListener('touchstart', playAudio);
 
     // Cleanup
     return () => {
-      window.removeEventListener("click", playAudio);
-      window.removeEventListener("touchstart", playAudio);
+      window.removeEventListener('click', playAudio);
+      window.removeEventListener('touchstart', playAudio);
     };
   }, [hasPlayed]);
 

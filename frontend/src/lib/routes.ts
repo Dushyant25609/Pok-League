@@ -1,4 +1,4 @@
 export enum Routes {
-  Home = "/",
-  Pokedex = "/pokedex",
+  Home = '/',
+  Pokedex = '/pokedex',
 }

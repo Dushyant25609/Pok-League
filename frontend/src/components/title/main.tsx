@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { dropAnimation } from "@/motion/axis";
-import { motion } from "framer-motion";
+import { dropAnimation } from '@/motion/axis';
+import { motion } from 'framer-motion';
 
 const MainTitle = () => {
   return (
