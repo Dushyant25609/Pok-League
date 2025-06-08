@@ -1,1 +1,1 @@
-npx format
+npm run format
