@@ -3,14 +3,13 @@ import MainTitle from "@/components/title/main";
 import TagTitle from "@/components/title/tag";
 import { Features } from "@/constants/highlights";
 import ShinyButton from "@/components/buttons/ShinyButton";
-import { LuSwords } from "react-icons/lu";
 import HomeButtons from "@/components/buttons/home";
 
 export default function Home() {
   return (
     <div className="flex flex-col justify-center items-center gap-3 md:gap-6 p-4 2xl:w-9/12 mx-auto">
       <MainTitle />
-      <TagTitle />
+      <TagTitle text="BATTLE ARENA" />
       <p className="md:w-2/3 xl:w-2/5 text-center text-gray-300">
         Step into the ultimate Pokémon battle experience! Whether you're a
         seasoned trainer or just starting your journey, PokéLeague Battle Arena

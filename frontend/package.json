@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "prepare": "husky",
+    "lint": "eslint .",
+    "format": "prettier --write 'src/**/*.{js,jsx,ts,tsx,css,md}'",
+    "format:check": "prettier --check 'src/**/*.{js,jsx,ts,tsx,css,md}'"
   },
   "dependencies": {
     "@designbycode/tailwindcss-text-stroke": "^1.3.0",
@@ -32,16 +35,23 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-prettier": "^5.4.1",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0",
+    "prettier": "^3.5.3",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
-    "typescript": "^5",
+    "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.1"
   }
 }

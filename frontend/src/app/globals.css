@@ -15,6 +15,10 @@
 }
 
 @layer utilities {
+  .text-stroke-1 {
+    -webkit-text-stroke: 1px #000000;
+    text-stroke: 1px #000000; /* optional fallback */
+  }
   .text-stroke-3 {
     -webkit-text-stroke: 6px #045698;
     text-stroke: 4px #045698; /* optional fallback */
@@ -59,9 +63,25 @@
     }
   }
 
+  @keyframes pokeball {
+    0% {
+      color: #e30000;
+    }
+    50% {
+      color: #ffffff;
+    }
+    100% {
+      color: #e30000;
+    }
+  }
+
   /* Animation utility class */
   .animate-shine {
     animation: shine 2s linear infinite;
+  }
+
+  .animate-pokeball {
+    animation: pokeball 4s ease-in-out infinite;
   }
 }
 
