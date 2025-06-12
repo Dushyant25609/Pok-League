@@ -230,12 +230,32 @@ func GetAvailablePokemon(c *gin.Context) {
 		"page":     page,
 		"limit":    limit,
 		"total":    total,
-		"pokemons": pokemons,
+		"data": pokemons,
+		"totalPages": int(math.Ceil(float64(total) / float64(limit))),
 	})
 }
 
 func GetPokemonStats(c *gin.Context) {
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
 	var pokemons []models.Pokemon
+	var total int64
+
+	// Count total Pokémon
+	database.DB.Model(&models.PokemonStats{}).Count(&total)
 
 	if err := database.DB.
 		Model(&models.Pokemon{}).
@@ -244,6 +264,8 @@ func GetPokemonStats(c *gin.Context) {
 		Preload("Types").
 		Preload("Stats").
 		Order("pokemon_stats.battles_won DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&pokemons).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -263,7 +285,13 @@ func GetPokemonStats(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       response,
+		"total":      total,
+		"page":       page,
+		"limit":      limit,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
 

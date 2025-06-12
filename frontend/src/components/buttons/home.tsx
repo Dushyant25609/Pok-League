@@ -28,9 +28,13 @@ const HomeButtons = () => {
         <Image priority src={pb} alt="PokeDex icon" className="w-6 h-6" />
         PokeDex
       </Button>
-      <Button size="lg" className="w-full md:w-1/2 gap-6">
+      <Button
+        onClick={() => navigate(Routes.Performance)}
+        size="lg"
+        className="w-full md:w-1/2 gap-6"
+      >
         <GrTrophy className="w-6 h-6 text-amber-300" />
-        League Stats
+        Performance
       </Button>
     </motion.div>
   );

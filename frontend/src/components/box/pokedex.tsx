@@ -1,17 +1,29 @@
 import { FC } from 'react';
-import { Card } from '../ui/card';
 import { capitalize } from '@/lib/tools';
 import PokemonImage from '@/components/image/pokemon';
+import AnimatedBox from '../animation/box';
+import { liftAnimation } from '@/motion/axis';
 
 interface PokedexBoxProps {
+  index: number;
   name: string;
   id: number;
   type: string[];
 }
 
-const PokedexBox: FC<PokedexBoxProps> = ({ name, id, type }) => {
+const PokedexBox: FC<PokedexBoxProps> = ({ index, name, id, type }) => {
   return (
-    <Card className="relative flex justify-center items-center aspect-square overflow-hidden group rounded-2xl shadow-lg transition-all duration-300 hover:shadow-2xl hover:ring-2 hover:ring-rose-400/50 bg-white dark:bg-zinc-900">
+    <AnimatedBox
+      animation={{
+        ...liftAnimation,
+        initial: {
+          y: 200,
+          opacity: 0,
+        },
+        transition: { ...liftAnimation.transition, delay: 0.1 * index, duration: 0.1 }, // Change only duration
+      }}
+      className="relative  flex justify-center items-center aspect-square overflow-hidden group rounded-2xl shadow-lg transition-all duration-300 hover:shadow-2xl hover:ring-2 hover:ring-rose-400/50 bg-white dark:bg-zinc-900"
+    >
       {/* Pokémon Image */}
       <PokemonImage
         id={id}
@@ -33,7 +45,7 @@ const PokedexBox: FC<PokedexBoxProps> = ({ name, id, type }) => {
           ))}
         </div>
       </div>
-    </Card>
+    </AnimatedBox>
   );
 };
 

@@ -16,7 +16,7 @@ const PokemonImage = ({ id, alt = 'pokemon', className = '' }: PokemonImageProps
 
   return (
     <Image
-      priority
+      loading="lazy"
       src={imgSrc}
       alt={alt}
       width={100}

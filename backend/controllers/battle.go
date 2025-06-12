@@ -181,17 +181,17 @@ func BattleSocket(c *gin.Context) {
 		// C) Initialize HP & decide best moves
 		p1 := &sub1.PokeData
 		p2 := &sub2.PokeData
-		var poke1, poke2 int
-		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub1.Username, sub1.PokemonID).First(&poke1, "hp")
-		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub2.Username, sub2.PokemonID).First(&poke2, "hp")
+		var selectedPoke1, selectedPoke2 models.SelectedPokemon
+		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub1.Username, sub1.PokemonID).First(&selectedPoke1)
+		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub2.Username, sub2.PokemonID).First(&selectedPoke2)
 
-		p1.CurrentHP = poke1
+		p1.CurrentHP = selectedPoke1.HP
 		if p1.CurrentHP == 0 {
-			p1.CurrentHP = p1.BaseStats.HP
+			p1.CurrentHP = p1.BaseStats.HP * 10
 		}
-		p2.CurrentHP = poke2
+		p2.CurrentHP = selectedPoke2.HP
 		if p2.CurrentHP == 0 {
-			p2.CurrentHP = p2.BaseStats.HP
+			p2.CurrentHP = p2.BaseStats.HP * 10
 		}
 
 		if(p1.Name == p2.Name) {

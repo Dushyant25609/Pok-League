@@ -3,16 +3,52 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Gen } from '@/constants/generation';
 import { redirect } from 'next/navigation';
 import { Metadata } from 'next';
-import { getPokemonList } from '@/services/pokedex';
+import { getPokemonByGen, getPokemonList } from '@/services/pokedex';
 import { Pokemon } from '@/types/pokemon';
 import { PokemonResponse } from '@/types/api';
 import PokedexBox from '@/components/box/pokedex';
 import PaginationControl from '@/components/buttons/paginationControl';
+import NavTitle from '@/components/title/nav';
+import DropDown from '@/components/dropDown/dropDown';
+import FloatingNavbar from '@/components/navbar/nav';
+import { redis } from '@/lib/redis';
+import AnimatedBox from '@/components/animation/box';
+import { dropAnimation, liftAnimation } from '@/motion/axis';
+import { NormalAnimation } from '@/motion/opacity';
+
+async function getPokedexData(page: number, limit: number) {
+  const cacheKey = `pokedex:data:page:${page}:limit:${limit}`;
+  const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    return cached as PokemonResponse;
+  }
+
+  const data = await getPokemonList(page, limit);
+  await redis.set(cacheKey, JSON.stringify(data), { ex: 86400 }); // Cache for 5 minutes
+
+  return data;
+}
+
+async function getPokedexGenData(page: number, limit: number, gen: number) {
+  const cacheKey = `pokedexGen:data:page:${page}:limit:${limit}`;
+  const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    return cached as PokemonResponse;
+  }
+
+  const data = await getPokemonByGen(page, limit, gen);
+  await redis.set(cacheKey, JSON.stringify(data), { ex: 86400 }); // Cache for 5 minutes
+
+  return data;
+}
 
 type Props = {
   searchParams: {
     limit?: string;
     page?: string;
+    gen?: string;
   };
 };
 
@@ -21,47 +57,101 @@ export const metadata: Metadata = {
 };
 
 const Pokedex = async ({ searchParams }: Props) => {
-  const limit = Number(searchParams?.limit || 15);
-  const page = Number(searchParams?.page || 1);
+  const { limit, page, gen } = await searchParams;
+  const limitInt = limit ? parseInt(limit) : 18;
+  const pageInt = page ? parseInt(page) : 1;
+  const genInt = gen ? parseInt(gen) : 0;
 
-  if (isNaN(limit) || isNaN(page) || limit <= 0 || page <= 0) {
-    redirect('/pokedex?limit=16&page=1');
+  if (
+    isNaN(limitInt) ||
+    isNaN(pageInt) ||
+    limitInt <= 0 ||
+    pageInt <= 0 ||
+    genInt < 0 ||
+    genInt > 9
+  ) {
+    redirect('/pokedex?limit=18&page=1&gen=1');
   }
 
-  const Data: PokemonResponse = await getPokemonList(page, limit);
+  let Data: PokemonResponse;
+  if (genInt) {
+    Data = await getPokedexGenData(pageInt, limitInt, genInt);
+  } else {
+    Data = await getPokedexData(pageInt, limitInt);
+  }
 
   return (
-    <div className="h-full w-full">
-      <div className="bg-gradient-to-b from-red-800 from-48% flex justify-center py-4 via-black to-52% to-gray-300 text-center font-long text-4xl md:text-5xl lg:text-6xl font-black text-white text-stroke-1 border-3 animate-pokeball border-black">
-        <h1 className="bg-white w-fit px-4 rounded-full py-2 border-4 border-black">Pokedex</h1>
-      </div>
+    <AnimatedBox
+      animation={NormalAnimation}
+      className="w-full h-full flex flex-col gap-4 items-center"
+    >
+      <NavTitle title={'Pokedex'} />
 
-      <div className="p-1 md:p-4 flex flex-col justify-center items-center gap-3 md:gap-6 2xl:w-9/12 mx-auto">
-        <Card className="flex-row items-center gap-0">
-          <CardContent className=" flex flex-col items-center gap-2">
-            {Gen.map((gen) => {
-              return <TabButton key={gen} text={`Generation ` + gen} route={''} active={false} />;
-            })}
-            <PaginationControl page={page} totalPages={Data.totalPages} />
-          </CardContent>
-          <CardContent>
-            <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
-              {Data &&
-                Data.data.map((pokemon: Pokemon) => {
-                  return (
-                    <PokedexBox
-                      key={pokemon.pokemon_id}
-                      name={pokemon.name}
-                      id={pokemon.pokemon_id}
-                      type={pokemon.types}
-                    />
-                  );
-                })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      <FloatingNavbar />
+      <Card className="w-10/12 flex md flex-col items-center gap-4 backdrop-blur-sm bg-white/30 border border-black shadow-md p-2">
+        <CardContent className="flex flex-wrap justify-center items-center gap-2 w-full md:hidden">
+          <DropDown limit={limitInt} gen={genInt} />
+        </CardContent>
+
+        <AnimatedBox
+          className="hidden md:flex flex-wrap justify-center items-center gap-2 w-full md:w-auto"
+          animation={{
+            ...dropAnimation,
+            transition: { ...dropAnimation.transition, delay: 1.5 }, // Change only duration
+          }}
+        >
+          <TabButton text={`All Gen`} gen={0} />
+          {Gen.map((gen) => (
+            <TabButton key={gen} text={`Gen ${gen}`} gen={gen} />
+          ))}
+        </AnimatedBox>
+
+        <CardContent className="w-4/5">
+          {/* Mobile carousel view */}
+          <AnimatedBox
+            animation={{
+              ...liftAnimation,
+              transition: { ...liftAnimation.transition, delay: 1.5 }, // Change only duration
+            }}
+            className="flex md:hidden overflow-x-auto space-x-2 no-scrollbar"
+          >
+            {Data &&
+              Data.data.map((pokemon: Pokemon, index) => (
+                <div key={pokemon.pokemon_id} className="min-w-[45%] max-w-[45%]">
+                  <PokedexBox
+                    index={index}
+                    name={pokemon.name}
+                    id={pokemon.pokemon_id}
+                    type={pokemon.types}
+                  />
+                </div>
+              ))}
+          </AnimatedBox>
+
+          {/* Desktop grid view */}
+          <AnimatedBox
+            animation={{
+              ...liftAnimation,
+              transition: { ...liftAnimation.transition, delay: 0.5 }, // Change only duration
+            }}
+            className="hidden md:grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
+          >
+            {Data &&
+              Data.data.map((pokemon: Pokemon, index) => (
+                <PokedexBox
+                  index={index}
+                  key={pokemon.pokemon_id}
+                  name={pokemon.name}
+                  id={pokemon.pokemon_id}
+                  type={pokemon.types}
+                />
+              ))}
+          </AnimatedBox>
+        </CardContent>
+        <PaginationControl page={pageInt} totalPages={Data.totalPages} />
+      </Card>
+    </AnimatedBox>
   );
 };
+
 export default Pokedex;

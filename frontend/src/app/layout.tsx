@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Audio } from '@/constants/audio';
 import BackgroundOverlay from '@/components/background/overlay';
 
 export const metadata: Metadata = {
@@ -15,8 +14,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-image bg-cover bg-center h-screen bg-no-repeat">
-        <BackgroundOverlay src={Audio.INTRO} />
+      <body className="bg-image bg-cover bg-center h-screen bg-no-repeat flex justify-center">
+        <BackgroundOverlay />
         {children}
       </body>
     </html>

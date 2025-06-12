@@ -28,7 +28,7 @@ export default function PaginationControl({ page, totalPages }: Props) {
   };
 
   return (
-    <Pagination>
+    <Pagination className="text-white">
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious
@@ -55,8 +55,12 @@ export default function PaginationControl({ page, totalPages }: Props) {
             <PaginationItem key={i}>
               <PaginationLink
                 isActive={p === page}
+                className={`px-4 py-2 border-0 cursor-pointer rounded-md transition ${
+                  page === p
+                    ? 'bg-red-700/50 backdrop-blur-2xl  text-white'
+                    : 'hover:bg-gray-200 text-white'
+                }`}
                 onClick={() => setPage(p)}
-                className="cursor-pointer"
               >
                 {p}
               </PaginationLink>

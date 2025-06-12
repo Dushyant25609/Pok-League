@@ -15,3 +15,13 @@ export interface Pokemon {
   types: string[];
   baseStats: BaseStats;
 }
+
+export interface PokemonWithStats extends Pokemon {
+  Stats: {
+    ID: number;
+    PokemonID: number;
+    BattlesWon: number;
+    BattlesLost: number;
+    TotalBattles: number;
+  };
+}
