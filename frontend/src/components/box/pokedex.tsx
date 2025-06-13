@@ -33,11 +33,11 @@ const PokedexBox: FC<PokedexBoxProps> = ({ index, name, id, type }) => {
 
       {/* Hover Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 to-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center text-white p-3">
-        <h3 className="text-lg font-bold tracking-wide">{capitalize(name)}</h3>
+        <h3 className="text-lg font-bold tracking-wide">{capitalize(name || '')}</h3>
         <div className="mt-2 flex gap-2 flex-wrap justify-center">
-          {type.map((t, i) => (
+          {(type || []).map((t) => (
             <span
-              key={i}
+              key={t}
               className="bg-white/20 backdrop-blur px-2 py-1 rounded-full text-xs font-semibold uppercase border border-white/30 shadow-sm"
             >
               {t}

@@ -1,6 +1,6 @@
 'use client';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface PokemonImageProps {
   id: number;
@@ -14,9 +14,13 @@ const PokemonImage = ({ id, alt = 'pokemon', className = '' }: PokemonImageProps
 
   const [imgSrc, setImgSrc] = useState(dreamWorldUrl);
 
+  useEffect(() => {
+    setImgSrc(dreamWorldUrl);
+  }, [id]);
+
   return (
     <Image
-      loading="lazy"
+      priority
       src={imgSrc}
       alt={alt}
       width={100}

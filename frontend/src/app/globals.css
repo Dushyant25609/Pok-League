@@ -18,6 +18,15 @@
 }
 
 @layer utilities {
+  .text-stroke-red-0 {
+    -webkit-text-stroke: 1px oklch(50.5% 0.213 27.518);
+    text-stroke: 1px oklch(50.5% 0.213 27.518); /* optional fallback */
+  }
+  .text-stroke-amber-0 {
+    -webkit-text-stroke: 1px oklch(87.9% 0.169 91.605);
+    text-stroke: 1px oklch(87.9% 0.169 91.605); /* optional fallback */
+  }
+
   .text-stroke-1 {
     -webkit-text-stroke: 1px #000000;
     text-stroke: 1px #000000; /* optional fallback */

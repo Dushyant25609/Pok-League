@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import BackgroundOverlay from '@/components/background/overlay';
+import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
   title: 'Create Next App',
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-image bg-cover bg-center h-screen bg-no-repeat flex justify-center">
         <BackgroundOverlay />
+        <Toaster />
         {children}
       </body>
     </html>

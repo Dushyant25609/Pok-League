@@ -4,10 +4,11 @@ import React from 'react';
 import { Button } from '../ui/button';
 import { motion } from 'framer-motion';
 import { dropAnimation } from '@/motion/axis';
+import { useRouter } from 'next/navigation';
+import { Routes } from '@/lib/routes';
 
 interface ShinyButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  color?: string;
   roundness?: string;
   shineWidth?: string;
 }
@@ -15,16 +16,20 @@ interface ShinyButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 const ShinyButton: React.FC<ShinyButtonProps> = ({
   children,
   className,
-  color = 'red',
   roundness = 'full',
   shineWidth = '200%',
   ...props
 }) => {
+  const router = useRouter();
+  const handleClick = () => {
+    router.push(Routes.Battle);
+  };
   return (
     <motion.div
       {...dropAnimation}
       transition={{ duration: 1, delay: 1.5 }}
       className={cn('h-12', className)}
+      onClick={handleClick}
     >
       <Button
         size={'shiny'}

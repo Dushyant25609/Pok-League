@@ -79,6 +79,7 @@ const Pokedex = async ({ searchParams }: Props) => {
   } else {
     Data = await getPokedexData(pageInt, limitInt);
   }
+  console.log('data:', Data);
 
   return (
     <AnimatedBox
@@ -117,12 +118,13 @@ const Pokedex = async ({ searchParams }: Props) => {
           >
             {Data &&
               Data.data.map((pokemon: Pokemon, index) => (
-                <div key={pokemon.pokemon_id} className="min-w-[45%] max-w-[45%]">
+                <div key={pokemon.ID} className="min-w-[45%] max-w-[45%]">
                   <PokedexBox
+                    key={pokemon.Name}
                     index={index}
-                    name={pokemon.name}
-                    id={pokemon.pokemon_id}
-                    type={pokemon.types}
+                    name={pokemon.Name}
+                    id={pokemon.ID}
+                    type={pokemon.Types}
                   />
                 </div>
               ))}
@@ -139,11 +141,11 @@ const Pokedex = async ({ searchParams }: Props) => {
             {Data &&
               Data.data.map((pokemon: Pokemon, index) => (
                 <PokedexBox
+                  key={pokemon.Name}
                   index={index}
-                  key={pokemon.pokemon_id}
-                  name={pokemon.name}
-                  id={pokemon.pokemon_id}
-                  type={pokemon.types}
+                  name={pokemon.Name}
+                  id={pokemon.ID}
+                  type={pokemon.Types}
                 />
               ))}
           </AnimatedBox>

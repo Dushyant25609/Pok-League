@@ -11,6 +11,7 @@ const navItems = [
   { name: 'Home', href: Routes.Home },
   { name: 'Pokedex', href: Routes.Pokedex },
   { name: 'Performance', href: Routes.Performance },
+  { name: 'Battle', href: Routes.Battle },
 ];
 
 const FloatingNavbar = () => {

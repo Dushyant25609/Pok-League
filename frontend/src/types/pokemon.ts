@@ -10,10 +10,10 @@ export interface BaseStats {
 }
 
 export interface Pokemon {
-  pokemon_id: number;
-  name: string;
-  types: string[];
-  baseStats: BaseStats;
+  ID: number;
+  Name: string;
+  Types: string[];
+  BaseStats: BaseStats;
 }
 
 export interface PokemonWithStats extends Pokemon {
