@@ -36,7 +36,7 @@ export const JoinRoomForm = () => {
           username: values.username,
           status: response.status,
         });
-        router.push(Routes.SelectionRoom.replace(':roomId', values.RoomCode));
+        router.push(Routes.Lobby);
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : 'An error occurred while joining the room'

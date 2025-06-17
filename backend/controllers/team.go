@@ -3,11 +3,9 @@ package controllers
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/Dushyant25609/Pok-League/database"
 	"github.com/Dushyant25609/Pok-League/models"
-	"github.com/Dushyant25609/Pok-League/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,50 +30,6 @@ func TeamSelectionSocket(c *gin.Context) {
 		"duration": room.TeamSelectionTime,
 		"deadline": room.TeamSelectionDeadline,
 	})
-
-	go handleTeamSelectionTimeout(room, roomCode)
-}
-
-func handleTeamSelectionTimeout(room models.BattleRoom, roomCode string) {
-	time.Sleep(time.Until(room.TeamSelectionDeadline))
-
-	var teamHost, teamGuest []models.SelectedPokemon
-	database.DB.Where("room_id = ? AND username = ?", roomCode, room.HostUsername).Find(&teamHost)
-	if room.GuestUsername != nil {
-		database.DB.Where("room_id = ? AND username = ?", roomCode, *room.GuestUsername).Find(&teamGuest)
-	}
-
-	if len(teamHost) == 0 && len(teamGuest) == 0 && !room.TimerExtended {
-		timeExtension := 2 * time.Minute
-		room.TeamSelectionTime += int(timeExtension.Seconds())
-		room.TeamSelectionDeadline = time.Now().Add(timeExtension)
-		room.TimerExtended = true
-		database.DB.Save(&room)
-
-		for _, c := range RoomConnections[roomCode] {
-			c.WriteJSON(gin.H{
-				"event":    "timer_extended",
-				"duration": int(timeExtension.Seconds()),
-				"deadline": room.TeamSelectionDeadline,
-			})
-		}
-
-		go handleTeamSelectionTimeout(room, roomCode)
-		return
-	}
-
-	if len(teamHost) < 6 {
-		utils.FillWithRandomPokemon(room.HostUsername, roomCode, database.DB)
-	}
-	if room.GuestUsername != nil && len(teamGuest) < 6 {
-		utils.FillWithRandomPokemon(*room.GuestUsername, roomCode, database.DB)
-	}
-
-	for _, c := range RoomConnections[roomCode] {
-		c.WriteJSON(gin.H{"event": "end_team_selection"})
-		c.Close()
-	}
-	delete(RoomConnections, roomCode)
 }
 
 
@@ -146,7 +100,7 @@ func SubmitSelectedTeam(c *gin.Context) {
 		if len(room.BannedTypes) > 0 {
 			for _, bannedType := range room.BannedTypes {
 				for _, pType := range p.Types {
-					if bannedType == pType.Name {
+					if bannedType == int64(pType.ID) {
 						c.JSON(http.StatusBadRequest, gin.H{"error": "One or more Pokémon have banned types"})
 						return
 					}
@@ -162,7 +116,7 @@ func SubmitSelectedTeam(c *gin.Context) {
 			Username:  payload.Username,
 			RoomID:    payload.RoomCode,
 			PokemonID: p.ID,
-			HP:        p.CurrentHP,
+			HP:        p.BaseStats.HP,
 		})
 	}
 
@@ -176,15 +130,11 @@ func SubmitSelectedTeam(c *gin.Context) {
 		conns := lobbyConns[payload.RoomCode]
 		lobbyMu.Unlock()
 
-		if len(conns) > 0 {
+		if conns.conn1 != nil && conns.conn2 != nil {
 			startMsg := gin.H{"event": "start_battle"}
 
-			for _, lc := range conns {
-			if lc.username == room.HostUsername || (room.GuestUsername != nil && lc.username == *room.GuestUsername) {
-				lc.conn.WriteJSON(startMsg)
-				lc.conn.Close()
-			}
-		}
+			conns.conn1.WriteJSON(startMsg)
+			conns.conn2.WriteJSON(startMsg)
 			// Clean up memory
 			lobbyMu.Lock()
 			delete(lobbyConns, payload.RoomCode)

@@ -186,13 +186,7 @@ func BattleSocket(c *gin.Context) {
 		database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub2.Username, sub2.PokemonID).First(&selectedPoke2)
 
 		p1.CurrentHP = selectedPoke1.HP
-		if p1.CurrentHP == 0 {
-			p1.CurrentHP = p1.BaseStats.HP * 10
-		}
 		p2.CurrentHP = selectedPoke2.HP
-		if p2.CurrentHP == 0 {
-			p2.CurrentHP = p2.BaseStats.HP * 10
-		}
 
 		if(p1.Name == p2.Name) {
 			p1.Name = sub1.Username + "`s " + p1.Name

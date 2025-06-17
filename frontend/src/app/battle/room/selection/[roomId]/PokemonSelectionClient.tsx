@@ -9,18 +9,40 @@ import MyTeam from '@/components/MyTeam';
 import NavTitle from '@/components/title/nav';
 import { dropAnimation, liftAnimation } from '@/motion/axis';
 import { PokemonResponse } from '@/types/api';
+import useSocket from '@/hooks/useSocket';
+import { SocketEvents } from '@/lib/routes';
+import { useCountdown } from '@/hooks/useCountdown';
+import { cn } from '@/lib/utils';
 
 interface PokemonSelectionClientProps {
   initialData: PokemonResponse;
+  roomId: string;
 }
 
-const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData }) => {
+const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData, roomId }) => {
   const [selectedPokemonIds, setSelectedPokemonIds] = useState<number[]>([]);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
+  const roomSocket = useSocket({ route: SocketEvents.SelectPokemon.replace(':roomId', roomId) });
+  const [deadline, setDeadline] = useState<string | null>(null);
+  const countdown = useCountdown(deadline);
 
   useEffect(() => {
-    console.log('selectedPokemonIds: ', selectedPokemonIds);
-  }, [selectedPokemonIds]);
+    const socket = roomSocket.current;
+    if (!socket) return;
+
+    socket.onmessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        setDeadline(message.deadline);
+      } catch (err) {
+        console.error('Failed to parse WebSocket message:', err);
+      }
+    };
+    // Clean up when component unmounts
+    return () => {
+      socket.close();
+    };
+  }, [roomSocket.current]);
 
   const handlePokemonSelect = (pokemon: number) => {
     setSelectedPokemonIds((prevSelected) => {
@@ -42,6 +64,16 @@ const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData }
       className="w-full h-full self-center flex flex-col items-center gap-4"
     >
       <NavTitle title={'Pokemon Selection'} />
+      {countdown !== null && (
+        <div className="flex items-center gap-2 bg-radial-[at_50%_50%] to-zinc-400 from-white from-40% px-4 py-2 rounded-xl shadow-md font-semibold text-lg">
+          <span className="animate-pulse text-xl">⏳</span>
+          <span>Time left:</span>
+          <span className={cn('font-bold text-xl', countdown < 60 && 'text-red-500')}>
+            {countdown}s
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center items-center">
         <AnimatedBox
           animation={dropAnimation}
@@ -56,13 +88,16 @@ const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData }
           View My Team ({selectedPokemonIds.length}/6)
         </button>
         {selectedPokemonIds.length === 6 && (
-          <button className="px-6 py-3 w-full md:w-fit md:h-full bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-800 transition-colors">
+          <button
+            type="submit"
+            className="px-6 py-3 w-full md:w-fit md:h-full bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-800 transition-colors"
+          >
             Submit Team
           </button>
         )}
       </div>
       <AnimatedBox
-        className="h-4/6 bg-black/30 overflow-scroll py-4 rounded-lg backdrop-blur-md"
+        className="h-3/5 bg-black/30 overflow-scroll py-4 rounded-lg backdrop-blur-md"
         animation={liftAnimation}
       >
         {initialData && (

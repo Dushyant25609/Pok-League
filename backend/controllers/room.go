@@ -12,11 +12,11 @@ import (
 	// other imports
 )
 
-type CreateRoomRequest struct {
+type CreateRoomRequest  struct {
 	Generations       []int64  `json:"generations" binding:"required"`
 	AllowLegendaries  bool     `json:"allow_legendaries"`
 	AllowMythical     bool     `json:"allow_mythical"`
-	BannedTypes       []string `json:"banned_types"`
+	BannedTypes       []int64 `json:"banned_types"`
 	TeamSelectionTime int      `json:"team_selection_time" binding:"required"` // e.g., 120 (in seconds)
 }
 
@@ -40,6 +40,8 @@ func CreateRoom(c *gin.Context) {
 		return
 	}
 
+	bannedTypes := pq.Int64Array(req.BannedTypes)
+
 	room := models.BattleRoom{
 		ID:                    uuid.New().String(),
 		HostUsername:          username,
@@ -47,7 +49,7 @@ func CreateRoom(c *gin.Context) {
 		Generations:           pq.Int64Array(req.Generations),
 		AllowLegendaries:      req.AllowLegendaries,
 		AllowMythical:         req.AllowMythical,
-		BannedTypes:           pq.StringArray(req.BannedTypes),
+		BannedTypes:           bannedTypes,
 		Status:                "waiting",
 		CreatedAt:             time.Now(),
 		ExpiresAt:             time.Now().Add(15 * time.Minute),
@@ -93,6 +95,12 @@ func JoinRoom(c *gin.Context) {
 	var req JoinRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	lobby := lobbyConns[req.Code]
+	if lobby.username1 == username {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You cannot join with same username"})
 		return
 	}
 

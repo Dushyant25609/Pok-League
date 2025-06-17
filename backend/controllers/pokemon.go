@@ -12,10 +12,10 @@ import (
 )
 
 type PokemonResponse struct {
-    ID        uint            `json:"pokemon_id"`
-    Name      string          `json:"name"`
-    Types     []string        `json:"types"`
-    BaseStats models.BaseStats `json:"baseStats"`
+    ID        uint            
+    Name      string          
+    Types     []string        
+    BaseStats models.BaseStats 
 }
 
 type PokemonStatsResponse struct{
@@ -184,7 +184,14 @@ func GetAvailablePokemon(c *gin.Context) {
 	}
 
 	if len(room.BannedTypes) > 0 {
-		baseQuery = baseQuery.Where("types.name != ALL(?)", pq.Array(room.BannedTypes))
+		baseQuery = baseQuery.Where(`
+			NOT EXISTS (
+				SELECT 1
+				FROM pokemon_types pt2
+				JOIN types t2 ON pt2.type_id = t2.id
+				WHERE pt2.pokemon_id = pokemons.id AND t2.id = ANY(?)
+			)
+		`, pq.Array(room.BannedTypes))
 	}
 
 	// Subquery to get Pokémon IDs only
@@ -211,13 +218,13 @@ func GetAvailablePokemon(c *gin.Context) {
 			return
 		}
 	}
+
 	var response []PokemonResponse
 	for _, p := range pokemons {
-		types := make([]string, len(p.Types))
-		for i, t := range p.Types {
-			types[i] = t.Name
+		types := make([]string, 0)
+		for _, t := range p.Types {
+			types = append(types, t.Name)
 		}
-
 		response = append(response, PokemonResponse{
 			ID:        p.ID,
 			Name:      p.Name,
@@ -227,13 +234,14 @@ func GetAvailablePokemon(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"page":     page,
-		"limit":    limit,
-		"total":    total,
-		"data": pokemons,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"data":       response,
 		"totalPages": int(math.Ceil(float64(total) / float64(limit))),
 	})
 }
+
 
 func GetPokemonStats(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")

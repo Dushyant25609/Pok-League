@@ -20,7 +20,7 @@ const SelectionPage: FC<Props> = async ({ searchParams, params }) => {
   const pageNum = page ? Number(page) : 1;
   const Data: PokemonResponse = await getRoomPokemonList(roomId, limitNum, pageNum);
 
-  return <PokemonSelectionClient initialData={Data} />;
+  return <PokemonSelectionClient initialData={Data} roomId={roomId} />;
 };
 
 export default SelectionPage;

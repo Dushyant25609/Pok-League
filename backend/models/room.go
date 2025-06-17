@@ -14,7 +14,7 @@ type BattleRoom struct {
 	Generations      pq.Int64Array  `gorm:"type:integer[]" json:"generations"` 
 	AllowLegendaries bool           `json:"allow_legendaries"`
 	AllowMythical    bool           `json:"allow_mythical"`
-	BannedTypes      pq.StringArray `gorm:"type:text[]" json:"banned_types"`
+	BannedTypes 	pq.Int64Array `gorm:"type:integer[]" json:"banned_types"`
 	Status           string         `json:"status"`
 	CreatedAt        time.Time      `json:"created_at"`
 	ExpiresAt        time.Time      `json:"expires_at"`

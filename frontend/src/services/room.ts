@@ -6,7 +6,7 @@ const baseUrl = '/room';
 export const createBattleRoom = async (
   username: string,
   generations: number[],
-  banned_types: string[],
+  banned_types: number[],
   allow_legendaries: boolean,
   allow_mythical: boolean,
   team_selection_time: number

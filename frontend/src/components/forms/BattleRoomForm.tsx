@@ -50,7 +50,7 @@ const BattleRoomForm: React.FC = () => {
       const submissionValues: CreateRoomRequest = {
         username: values.username,
         generation_allowed: values.generationAllow,
-        banned_types: values.bannedTypes,
+        banned_types: values.bannedTypes.map((type) => pokemonTypeMap[type]),
         allow_legendaries: values.allowLegendaries,
         allow_mythicals: values.allowMythicals,
         team_selection_time: values.teamSelectTime,
@@ -65,8 +65,6 @@ const BattleRoomForm: React.FC = () => {
           submissionValues.allow_mythicals,
           submissionValues.team_selection_time
         );
-        console.log('response: ');
-
         useRoomStore.setState({
           username: submissionValues.username,
           roomCode: res.code,
@@ -75,7 +73,7 @@ const BattleRoomForm: React.FC = () => {
 
         toast.success('Room Successfully created');
 
-        router.push(Routes.SelectionRoom.replace(':roomId', res.code));
+        router.push(Routes.Lobby);
       } catch (error: unknown) {
         toast.error('Room creation failed');
         useRoomStore.setState({ error: error as string });
@@ -85,25 +83,46 @@ const BattleRoomForm: React.FC = () => {
 
   const generations = Array.from({ length: 9 }, (_, i) => i + 1);
   const pokemonTypes = [
-    'Normal',
-    'Fire',
-    'Water',
-    'Grass',
-    'Electric',
-    'Ice',
-    'Fighting',
-    'Poison',
-    'Ground',
-    'Flying',
-    'Psychic',
-    'Bug',
-    'Rock',
-    'Ghost',
-    'Dragon',
-    'Steel',
-    'Dark',
-    'Fairy',
+    'normal',
+    'fighting',
+    'flying',
+    'poison',
+    'ground',
+    'rock',
+    'bug',
+    'ghost',
+    'steel',
+    'fire',
+    'water',
+    'grass',
+    'electric',
+    'psychic',
+    'ice',
+    'dragon',
+    'dark',
+    'fairy',
   ];
+
+  const pokemonTypeMap: { [key: string]: number } = {
+    normal: 1,
+    fighting: 2,
+    flying: 3,
+    poison: 4,
+    ground: 5,
+    rock: 6,
+    bug: 7,
+    ghost: 8,
+    steel: 9,
+    fire: 10,
+    water: 11,
+    grass: 12,
+    electric: 13,
+    psychic: 14,
+    ice: 15,
+    dragon: 16,
+    dark: 17,
+    fairy: 18,
+  };
 
   const steps = [
     {
@@ -228,11 +247,11 @@ const BattleRoomForm: React.FC = () => {
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold">Banned Types</label>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {pokemonTypes.map((type) => {
+            {pokemonTypes.map((type, index) => {
               const isChecked = formik.values.bannedTypes.includes(type);
               return (
                 <label
-                  key={type}
+                  key={index}
                   className={`cursor-pointer text-center px-4 py-1.5 rounded-full border text-sm transition-all duration-200
               ${
                 isChecked
