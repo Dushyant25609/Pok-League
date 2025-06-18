@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import useRoomStore from '@/store/room';
-import useSocket from '@/hooks/useSocket';
 import { Routes, SocketEvents } from '@/lib/routes';
+import UseSocket from '@/hooks/useSocket';
 
 const LobbyWait = () => {
   const roomId = useRoomStore((state) => state.roomCode);
@@ -14,7 +14,7 @@ const LobbyWait = () => {
     return <>Page not found</>;
   }
   const username = useRoomStore((state) => state.username);
-  const roomSocket = useSocket({ route: SocketEvents.Lobby.replace(':roomId', roomId) });
+  const roomSocket = UseSocket({ route: SocketEvents.Lobby.replace(':roomId', roomId) });
   const router = useRouter();
   useEffect(() => {
     const ws = roomSocket.current;

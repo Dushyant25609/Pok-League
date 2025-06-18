@@ -52,7 +52,7 @@ func CreateRoom(c *gin.Context) {
 		BannedTypes:           bannedTypes,
 		Status:                "waiting",
 		CreatedAt:             time.Now(),
-		ExpiresAt:             time.Now().Add(15 * time.Minute),
+		ExpiresAt:             time.Now().Add(30 * time.Minute),
 		TeamSelectionTime:     req.TeamSelectionTime,
 		TeamSelectionDeadline: time.Now().Add(time.Duration(req.TeamSelectionTime) * time.Second),
 	}
@@ -98,11 +98,7 @@ func JoinRoom(c *gin.Context) {
 		return
 	}
 
-	lobby := lobbyConns[req.Code]
-	if lobby.username1 == username {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "You cannot join with same username"})
-		return
-	}
+	// Removed lobbyConns check here as it's handled by WebSocket connection
 
 	var room models.BattleRoom
 	if err := database.DB.Where("code = ?", req.Code).First(&room).Error; err != nil {
@@ -120,29 +116,14 @@ func JoinRoom(c *gin.Context) {
 		return
 	}
 
-	if room.ExpiresAt.Before(time.Now()) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Room expired"})
-		return
-	}
-
-	room.GuestUsername = ptr(username)
-	room.Status = "ready" // optional, depends on your flow
-
+	// Update the room with the guest's username
+	room.GuestUsername = &username
 	if err := database.DB.Save(&room).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join room"})
 		return
 	}
 
-	c.JSON(http.StatusOK, JoinRoomResponse{
-		RoomID:       room.ID,
-		HostUsername: room.HostUsername,
-		GuestUsername: *room.GuestUsername,
-		Status:       room.Status,
-	})
-}
-
-func ptr(s string) *string {
-	return &s
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully joined room", "room_code": room.Code})
 }
 
 // controllers/battle.go

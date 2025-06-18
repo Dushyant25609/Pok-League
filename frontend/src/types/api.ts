@@ -28,3 +28,9 @@ export interface JoinRoomResponse {
   guest_username: string;
   status: string;
 }
+
+export interface TeamSubmitRequest {
+  username: string;
+  room_code: string;
+  pokemon_ids: number[];
+}

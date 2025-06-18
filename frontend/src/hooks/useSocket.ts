@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 
-export default function useSocket({ route }: { route: string }) {
+export default function UseSocket({ route }: { route: string }) {
   const baseURL = process.env.NEXT_PUBLIC_SOCKET_URL || 'ws://localhost:8080/api/ws';
   const SOCKET_URL = `${baseURL}${route}`;
 

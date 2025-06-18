@@ -69,7 +69,7 @@ func SubmitSelectedTeam(c *gin.Context) {
 	}
 
 	var pokemons []models.Pokemon
-	database.DB.Preload("Types").Where("id IN ?", payload.PokemonIDs).Find(&pokemons)
+	database.DB.Preload("Types").Preload("BaseStats").Where("id IN ?", payload.PokemonIDs).Find(&pokemons)
 	if len(pokemons) != 6 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Pokémon submitted"})
 		return
@@ -121,26 +121,6 @@ func SubmitSelectedTeam(c *gin.Context) {
 	}
 
 	// ✅ Check if both players submitted
-	var hostCount, guestCount int64
-	database.DB.Model(&models.SelectedPokemon{}).Where("room_id = ? AND username = ?", payload.RoomCode, room.HostUsername).Count(&hostCount)
-	database.DB.Model(&models.SelectedPokemon{}).Where("room_id = ? AND username = ?", payload.RoomCode, *room.GuestUsername).Count(&guestCount)
-
-	if hostCount == 6 && guestCount == 6 {
-		lobbyMu.Lock()
-		conns := lobbyConns[payload.RoomCode]
-		lobbyMu.Unlock()
-
-		if conns.conn1 != nil && conns.conn2 != nil {
-			startMsg := gin.H{"event": "start_battle"}
-
-			conns.conn1.WriteJSON(startMsg)
-			conns.conn2.WriteJSON(startMsg)
-			// Clean up memory
-			lobbyMu.Lock()
-			delete(lobbyConns, payload.RoomCode)
-			lobbyMu.Unlock()
-		}
-	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Team submitted successfully"})
 }

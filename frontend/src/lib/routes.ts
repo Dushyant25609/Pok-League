@@ -7,9 +7,11 @@ export enum Routes {
   JoinRoom = '/battle/room/join',
   SelectionRoom = '/battle/room/selection/:roomId',
   Lobby = '/battle/room/lobby',
+  BattleRoom = '/battle/room/arena/:roomId',
 }
 
 export enum SocketEvents {
   SelectPokemon = '/team-selection/:roomId',
   Lobby = '/lobby/:roomId',
+  Battle = '/battle/:roomId',
 }

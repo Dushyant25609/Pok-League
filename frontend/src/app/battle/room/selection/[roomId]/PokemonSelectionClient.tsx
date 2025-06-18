@@ -10,9 +10,14 @@ import NavTitle from '@/components/title/nav';
 import { dropAnimation, liftAnimation } from '@/motion/axis';
 import { PokemonResponse } from '@/types/api';
 import useSocket from '@/hooks/useSocket';
-import { SocketEvents } from '@/lib/routes';
+import { Routes, SocketEvents } from '@/lib/routes';
 import { useCountdown } from '@/hooks/useCountdown';
 import { cn } from '@/lib/utils';
+import useRoomStore from '@/store/room';
+import { TeamSubmitRequest } from '@/types/api';
+import { submitPokemonTeam } from '@/services/team';
+import useTeamStore from '@/store/team';
+import { useRouter } from 'next/navigation';
 
 interface PokemonSelectionClientProps {
   initialData: PokemonResponse;
@@ -25,6 +30,20 @@ const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData, 
   const roomSocket = useSocket({ route: SocketEvents.SelectPokemon.replace(':roomId', roomId) });
   const [deadline, setDeadline] = useState<string | null>(null);
   const countdown = useCountdown(deadline);
+  const username = useRoomStore((state) => state.username);
+  const router = useRouter();
+
+  const submitTeam = async (username: string, roomid: string, pokemonIds: number[]) => {
+    const team: TeamSubmitRequest = {
+      username,
+      room_code: roomid,
+      pokemon_ids: pokemonIds,
+    };
+    await submitPokemonTeam(team).then(() => {
+      useTeamStore.setState({ username, team: pokemonIds });
+      router.push(Routes.BattleRoom.replace(':roomId', roomid));
+    });
+  };
 
   useEffect(() => {
     const socket = roomSocket.current;
@@ -89,6 +108,7 @@ const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData, 
         </button>
         {selectedPokemonIds.length === 6 && (
           <button
+            onClick={() => submitTeam(username, roomId, selectedPokemonIds)}
             type="submit"
             className="px-6 py-3 w-full md:w-fit md:h-full bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-800 transition-colors"
           >
