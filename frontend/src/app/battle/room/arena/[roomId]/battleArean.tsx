@@ -1,24 +1,32 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import useRoomStore from '@/store/room';
 import useSocket from '@/hooks/useSocket';
 import { Routes, SocketEvents } from '@/lib/routes';
 import useTeamStore from '@/store/team';
-import { battlePokemon, battlePokemonUsed, battleResult, dialogMessage } from '@/types/battle';
+import {
+  battlePokemon,
+  battlePokemonUsed,
+  battleResult,
+  dialogMessage,
+  inBattlePokemon,
+} from '@/types/battle';
 import {
   SelectPokemonDialog,
-  OpponentUsedPokemons,
   DialogDisplay,
   BattleResult,
   EndBattleScreen,
+  OpponentUsedPokemons,
+  DuringBattle,
+  OpNextPokemon,
 } from './battleComponents';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 
 const Waiting = () => {
   return (
-    <div className=" flex flex-col items-center justify-center text-white px-4">
+    <div className="fixed h-screen w-screen top-0 left-0 z-50 bg-black/30 backdrop-blur-md flex flex-col items-center justify-center text-white px-4">
       <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-red-600 border-opacity-75 mb-6" />
       <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2">
         Waiting for opponent to Submit their team...
@@ -39,6 +47,7 @@ const BattleAreana = ({ roomId }: Props) => {
   }));
 
   const [pokemonUsed, setPokemonUsed] = useState<battlePokemonUsed[]>(team);
+  const [opPokemonUsed, setOpPokemonUsed] = useState<battlePokemonUsed[]>([]);
   const [battlePokemon, setBattlePokemon] = useState<battlePokemon>({
     winner: '',
     loser: '',
@@ -47,33 +56,34 @@ const BattleAreana = ({ roomId }: Props) => {
   });
   const [event, setEvent] = useState<string>('ongoing_battle');
   const [waitingOpponent, setWaitingOpponent] = useState<boolean>(false);
-  const [selectPokemon, setSelectPokemon] = useState<boolean>(true);
   const [dialogMessages, setDialogMessages] = useState<dialogMessage[]>([]);
   const [result, setResult] = useState<battleResult>({ winner: '', pokemon: 0, hp: 0 });
   const [showResultMessage, setShowResultMessage] = useState<boolean>(false);
   const [showEndScreen, setShowEndScreen] = useState<boolean>(false);
-  const [countdownEnd, setCountdownEnd] = useState<string>('');
+  const [inBattle, setInBattle] = useState<boolean>(false);
+  const [inBattlePokemon, setInBattlePokemon] = useState<inBattlePokemon>({
+    pokemon1_name: '',
+    pokemon2_name: '',
+    pokemon1_id: 0,
+    pokemon2_id: 0,
+  });
+  const dialogRef = useRef<dialogMessage[]>([]);
   const router = useRouter();
-
-  // ✅ still called at top level
   const roomSocket = useSocket({ route: SocketEvents.Battle.replace(':roomId', roomId) });
 
   const sendPokemon = (pokemon_id: number) => {
-    console.log('sendPokemon:', pokemon_id);
-    console.log('WebSocket:', roomSocket?.current);
-    console.log('WebSocket State:', roomSocket?.current?.readyState);
     if (!roomSocket?.current || roomSocket?.current.readyState !== WebSocket.OPEN) return;
-    console.log('Data Sent:', { username, pokemon_id, event });
+    setDialogMessages([]);
+    dialogRef.current = [];
     roomSocket?.current.send(JSON.stringify({ username, pokemon_id, event }));
   };
-
+  console.log('dialog', dialogMessages);
   useEffect(() => {
     if (!roomSocket?.current) return;
 
     roomSocket.current.onmessage = (message) => {
       try {
         const data = JSON.parse(message.data);
-        console.log('Data Received:', data);
         switch (data.event) {
           case 'pokemon_select':
             setEvent('ongoing_battle');
@@ -83,41 +93,53 @@ const BattleAreana = ({ roomId }: Props) => {
               opPokemon: data.pokemon,
               hp: data.hp,
             });
-            // eslint-disable-next-line no-case-declarations
-            const time = new Date().getTime() + 20 * 1000;
-            setCountdownEnd(time.toString());
             setWaitingOpponent(false);
-            setSelectPokemon(true);
             break;
 
           case 'dialog_update':
             setEvent('dialog_update');
-            setDialogMessages((prev) =>
-              [
+            setDialogMessages((prev) => {
+              const updated = [
                 ...prev,
                 {
                   text: data.text,
                   type: data.type,
                   timestamp: new Date(data.timestamp),
                 },
-              ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-            );
+              ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+              dialogRef.current = updated;
+              return updated;
+            });
             break;
 
           case 'battle_result':
             setEvent('battle_result');
+            setInBattle(false);
             setResult({ winner: data.winner, pokemon: data.pokemon, hp: data.hp });
             setShowResultMessage(true);
-            setTimeout(() => setShowResultMessage(false), 2000);
+            setEvent('battle_result');
+            setInBattle(false);
+
+            // 1) bump battleNumber based on its latest value
 
             if (data.winner === username) {
+              setWaitingOpponent(true);
               setPokemonUsed((prev) =>
                 prev.map((poke) =>
                   poke.pokemon_id === data.winnerPokemon ? { ...poke, hp: data.hp } : poke
                 )
               );
-              setWaitingOpponent(true);
-              setSelectPokemon(false);
+              setOpPokemonUsed((prev) => {
+                const alreadyExists = prev.find((poke) => poke.pokemon_id === data.loserPokemon);
+                if (alreadyExists) {
+                  return prev.map((poke) =>
+                    poke.pokemon_id === data.loserPokemon ? { ...poke, hp: 0 } : poke
+                  );
+                } else {
+                  return [...prev, { pokemon_id: data.loserPokemon, hp: 0 }];
+                }
+              });
               toast.success('You win!');
             } else {
               setPokemonUsed((prev) =>
@@ -125,16 +147,40 @@ const BattleAreana = ({ roomId }: Props) => {
                   poke.pokemon_id === data.loserPokemon ? { ...poke, hp: 0 } : poke
                 )
               );
-              setSelectPokemon(true);
-              const time = new Date().getTime() + 20 * 1000;
-              setCountdownEnd(time.toString());
+              setOpPokemonUsed((prev) => {
+                const alreadyExists = prev.find((poke) => poke.pokemon_id === data.winnerPokemon);
+                if (alreadyExists) {
+                  return prev.map((poke) =>
+                    poke.pokemon_id === data.winnerPokemon ? { ...poke, hp: data.hp } : poke
+                  );
+                } else {
+                  return [...prev, { pokemon_id: data.winnerPokemon, hp: data.hp }];
+                }
+              });
+              setBattlePokemon({
+                winner: '',
+                loser: '',
+                opPokemon: 0,
+                hp: 0,
+              });
               toast.error('You lose!');
             }
             break;
 
           case 'end_battle':
             setShowEndScreen(true);
+            setWaitingOpponent(false);
             setEvent('end_battle');
+            break;
+
+          case 'battle_start':
+            setInBattle(true);
+            setInBattlePokemon({
+              pokemon1_name: data.p1,
+              pokemon2_name: data.p2,
+              pokemon1_id: data.p1_id,
+              pokemon2_id: data.p2_id,
+            });
             break;
         }
       } catch (err) {
@@ -151,38 +197,48 @@ const BattleAreana = ({ roomId }: Props) => {
   }, [pokemonUsed, username, roomSocket?.current]);
 
   return (
-    <div className="flex flex-col items-center justify-center text-white px-4 w-full h-full">
+    <div className="flex justify-between gap-4 text-white px-4 w-full h-4/5 py-4">
       {waitingOpponent && <Waiting />}
-      {countdownEnd && <p>Time left: {countdownEnd}</p>}
 
-      {selectPokemon && (
-        <SelectPokemonDialog
-          pokemons={pokemonUsed}
-          onSelect={(poke) => sendPokemon(poke.pokemon_id)}
-          isFirst={!dialogMessages.length}
-          isOpen={selectPokemon}
-        />
-      )}
+      <SelectPokemonDialog
+        pokemons={pokemonUsed}
+        onSelect={(poke) => sendPokemon(poke.pokemon_id)}
+        isFirst={!dialogMessages.length}
+        OpPokemonUsed={opPokemonUsed}
+      />
 
-      {battlePokemon.opPokemon !== 0 && (
-        <OpponentUsedPokemons
-          pokemons={[{ pokemon_id: battlePokemon.opPokemon, hp: battlePokemon.hp }]}
-        />
-      )}
+      <div className="w-full space-y-4">
+        <DialogDisplay dialogs={dialogMessages} />
+        {battlePokemon.opPokemon !== 0 && (
+          <OpNextPokemon hp={battlePokemon.hp} id={battlePokemon.opPokemon} />
+        )}
+      </div>
 
-      <DialogDisplay dialogs={dialogMessages} />
+      <Card className="bg-[#1e1e2f]/30 backdrop-blur-md border-0 text-white">
+        <CardContent className="flex flex-col gap-3">
+          <CardTitle>Opponent Pokemon</CardTitle>
+          {opPokemonUsed.length !== 0 && <OpponentUsedPokemons pokemons={opPokemonUsed} />}
+        </CardContent>
+      </Card>
 
       {showResultMessage && (
         <BattleResult
-          result={result.winner === username ? 'won' : 'lost'}
+          result={result.winner == username ? 'won' : 'lost'}
           onClear={() => setShowResultMessage(false)}
+        />
+      )}
+      {inBattle && (
+        <DuringBattle
+          pokemon1={inBattlePokemon.pokemon1_name}
+          pokemon2={inBattlePokemon.pokemon2_name}
+          pokemon1_id={inBattlePokemon.pokemon1_id}
+          pokemon2_id={inBattlePokemon.pokemon2_id}
         />
       )}
 
       {showEndScreen && (
         <EndBattleScreen
           winner={result.winner}
-          loser={battlePokemon.loser}
           onNewMatch={() => router.push(Routes.Battle)}
           onHome={() => router.push(Routes.Home)}
         />

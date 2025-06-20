@@ -69,6 +69,7 @@ const BattleRoomForm: React.FC = () => {
           username: submissionValues.username,
           roomCode: res.code,
           status: res.status,
+          gens: submissionValues.generation_allowed,
         });
 
         toast.success('Room Successfully created');

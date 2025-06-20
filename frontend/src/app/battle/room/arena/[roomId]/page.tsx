@@ -1,4 +1,7 @@
+import AnimatedBox from '@/components/animation/box';
 import BattleAreana from './battleArean';
+import { dropAnimation } from '@/motion/axis';
+import NavTitle from '@/components/title/nav';
 
 interface Props {
   params: {
@@ -8,7 +11,12 @@ interface Props {
 
 const ArenaPage = async ({ params }: Props) => {
   const { roomId } = await params;
-  return <BattleAreana roomId={roomId} />;
+  return (
+    <AnimatedBox className="w-full h-full flex flex-col gap-0" animation={dropAnimation}>
+      <NavTitle title="Battle" />
+      <BattleAreana roomId={roomId} />
+    </AnimatedBox>
+  );
 };
 
 export default ArenaPage;

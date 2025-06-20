@@ -116,7 +116,7 @@ func SubmitSelectedTeam(c *gin.Context) {
 			Username:  payload.Username,
 			RoomID:    payload.RoomCode,
 			PokemonID: p.ID,
-			HP:        p.BaseStats.HP,
+			HP:        p.BaseStats.HP*5,
 		})
 	}
 

@@ -18,6 +18,7 @@ import { TeamSubmitRequest } from '@/types/api';
 import { submitPokemonTeam } from '@/services/team';
 import useTeamStore from '@/store/team';
 import { useRouter } from 'next/navigation';
+import { GetRandomPokemonTeamByGenerations } from '@/lib/pokemon';
 
 interface PokemonSelectionClientProps {
   initialData: PokemonResponse;
@@ -76,6 +77,19 @@ const PokemonSelectionClient: FC<PokemonSelectionClientProps> = ({ initialData, 
       }
     });
   };
+
+  useEffect(() => {
+    if (countdown == null || countdown > 0) {
+      return;
+    }
+    const team = GetRandomPokemonTeamByGenerations(useRoomStore.getState().gens).then((ids) => {
+      setSelectedPokemonIds(ids);
+      return ids;
+    });
+    team.then((ids) => {
+      submitTeam(username, roomId, ids);
+    });
+  }, [useRoomStore.getState().gens, countdown]);
 
   return (
     <AnimatedBox

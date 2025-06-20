@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -109,6 +110,14 @@ func handleBattleRequest(conn *websocket.Conn, roomCode string, req struct {
 
 	pb.mu.Lock()
 	if req.Event == "end_battle" && pb.conn1 != nil && pb.conn2 != nil {
+
+		endMsg := gin.H{
+			"event": "end_battle",
+		}
+		
+		pb.conn1.WriteJSON(endMsg)
+		pb.conn2.WriteJSON(endMsg)
+
 		pb.conn1.Close()
 		pb.conn2.Close()
 		if pb.dialog != nil {
@@ -165,7 +174,7 @@ func handleBattleRequest(conn *websocket.Conn, roomCode string, req struct {
 					"winner": pb.sub2.Username,
 					"loser": pb.sub1.Username,
 					"pokemon": pb.sub1.PokemonID,
-					"hp": (pb.sub1.PokeData.CurrentHP/pb.sub1.PokeData.BaseStats.HP)*100,
+					"hp": math.Round(float64(pb.sub1.PokeData.CurrentHP)/(float64(pb.sub1.PokeData.BaseStats.HP*5))*100),
 				}
 				pb.conn2.WriteJSON(msg)
 			} else if player.Loser == pb.sub2.Username {
@@ -176,13 +185,15 @@ func handleBattleRequest(conn *websocket.Conn, roomCode string, req struct {
 				}
 				var selectedPokemon models.SelectedPokemon
 				database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, pb.sub2.Username, pb.sub2.PokemonID).First(&selectedPokemon)
-				pb.sub1.PokeData.CurrentHP = selectedPokemon.HP
+				pb.sub2.PokeData.CurrentHP = selectedPokemon.HP
+				fmt.Println("selected Pokemon: ",selectedPokemon)
+				fmt.Println("selected Pokemon Current HP: ",pb.sub2.PokeData.CurrentHP)
 				msg := gin.H{
 					"event": "pokemon_select",
 					"winner": pb.sub1.Username,
 					"loser": pb.sub2.Username,
 					"pokemon": pb.sub2.PokemonID,
-					"hp": (pb.sub2.PokeData.CurrentHP/pb.sub2.PokeData.BaseStats.HP)*100,
+					"hp": math.Round(float64(pb.sub2.PokeData.CurrentHP)/(float64(pb.sub2.PokeData.BaseStats.HP*5))*100),
 				}
 				pb.conn1.WriteJSON(msg)
 			}
@@ -211,11 +222,10 @@ func handleBattleRequest(conn *websocket.Conn, roomCode string, req struct {
 func runBattle(pb *pendingBattle, roomCode string) {
 	fmt.Println("runBattle")
 	pb.mu.Lock()
-	if pb.sub1 == nil || pb.sub2 == nil {
+	if pb.sub1 == nil || pb.sub2 == nil || pb.sub1.PokeData.Name == "" || pb.sub2.PokeData.Name == "" {
 		pb.mu.Unlock()
 		return
 	}
-	pb.started = true
 	sub1 := pb.sub1
 	sub2 := pb.sub2
 	conn1 := pb.conn1
@@ -237,15 +247,29 @@ func runBattle(pb *pendingBattle, roomCode string) {
 		return
 	}
 
+	
+
 	// Setup battle
 	p1 := &sub1.PokeData
 	p2 := &sub2.PokeData
+
+	startMsg := gin.H{
+		"event": "battle_start",
+		"p1":    p1.Name,
+		"p2":    p2.Name,
+		"p1_id": p1.ID,
+		"p2_id": p2.ID,
+	}
+	conn1.WriteJSON(startMsg)
+	conn2.WriteJSON(startMsg)
+
 	var s1, s2 models.SelectedPokemon
 	database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub1.Username, sub1.PokemonID).First(&s1)
 	database.DB.Where("room_id =? AND username =? AND pokemon_id =?", roomCode, sub2.Username, sub2.PokemonID).First(&s2)
 
 	p1.CurrentHP = s1.HP
 	p2.CurrentHP = s2.HP
+
 
 	if p1.Name == p2.Name {
 		p1.Name = sub1.Username + "'s " + p1.Name
@@ -256,6 +280,11 @@ func runBattle(pb *pendingBattle, roomCode string) {
 	move2, eff2 := battle.ChooseBestMove(database.DB, *p2, *p1)
 	dialog := battle.NewBattleDialog()
 	pb.dialog = dialog
+
+	fmt.Println("HP1: ", p1.CurrentHP)
+	fmt.Println("Base HP1: ", p1.BaseStats.HP * 5)
+	fmt.Println("HP2: ", p2.CurrentHP)
+	fmt.Println("Base HP2: ", p2.BaseStats.HP * 5)
 
 	go func() {
 		for msg := range dialog.Messages {
@@ -291,7 +320,7 @@ func runBattle(pb *pendingBattle, roomCode string) {
 		}
 		if !dodge {
 			dmg := battle.CalculateDamage(database.DB, *attacker, *defender, move)
-			damage = dmg / 5
+			damage = dmg/5
 			attack = "damaged"
 			defender.CurrentHP -= damage
 			if defender.CurrentHP < 0 {
@@ -323,12 +352,13 @@ func runBattle(pb *pendingBattle, roomCode string) {
 	// Final results
 	var winnerUser, loserUser string
 	var winnerPokemon, loserPokemon uint
-	var winnerHP, loserHp int
+	var winnerHP, loserHp, winnerBaseHp int
 	if p1.CurrentHP > 0 {
 		winnerUser = sub1.Username
 		loserUser = sub2.Username
 		loserPokemon = p2.ID
 		winnerPokemon = p1.ID
+		winnerBaseHp = p1.BaseStats.HP
 		winnerHP = p1.CurrentHP
 		loserHp = p2.CurrentHP
 	} else {
@@ -336,6 +366,7 @@ func runBattle(pb *pendingBattle, roomCode string) {
 		loserUser = sub1.Username
 		winnerPokemon = p2.ID
 		loserPokemon = p1.ID
+		winnerBaseHp = p2.BaseStats.HP
 		winnerHP = p2.CurrentHP
 		loserHp = p1.CurrentHP
 	}
@@ -345,18 +376,28 @@ func runBattle(pb *pendingBattle, roomCode string) {
 		Loser:  loserUser,
 	}
 
+	fmt.Println("HP1: ", p1.CurrentHP)
+	fmt.Println("Base HP1: ", p1.BaseStats.HP * 5)
+	fmt.Println("HP2: ", p2.CurrentHP)
+	fmt.Println("Base HP2: ", p2.BaseStats.HP * 5)
+
 	dialog.NarrateBattleEnd(winnerUser, loserUser)
 	RemoveLoserPokemon(loserPokemon, loserUser, roomCode)
 	updatePostBattleStats(p1.ID, p1.CurrentHP > 0)
 	updatePostBattleStats(p2.ID, p2.CurrentHP > 0)
 	UpdateHpLeft(winnerPokemon, winnerHP, winnerUser, roomCode)
 
+	pb.sub1.PokeData.Name = ""
+	pb.sub2.PokeData.Name = ""
+
+	
+
 	result := gin.H{
 		"event":   "battle_result",
 		"winner":  winnerUser,
 		"winnerPokemon": winnerPokemon,
 		"loserPokemon": loserPokemon,
-		"hp":      winnerHP,
+		"hp":      math.Round((float64(winnerHP) / (float64(winnerBaseHp)*5)) * 100),
 		"loserHp": loserHp,
 	}
 	safeWriteJSON(&pb.mu1, conn1, result)

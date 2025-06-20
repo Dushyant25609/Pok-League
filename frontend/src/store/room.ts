@@ -4,10 +4,12 @@ import { persist } from 'zustand/middleware';
 interface RoomState {
   username: string;
   roomCode: string;
+  gens: number[];
   status: string;
   error: string | null;
   setUsername: (username: string) => void;
   setRoomCode: (roomCode: string) => void;
+  setGens: (gens: number[]) => void;
   setStatus: (status: string) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -19,10 +21,12 @@ const useRoomStore = create<RoomState>()(
     (set) => ({
       username: '',
       roomCode: '',
+      gens: [],
       status: '',
       error: null,
       setUsername: (username) => set({ username }),
       setRoomCode: (roomCode) => set({ roomCode }),
+      setGens: (gens) => set({ gens }),
       setStatus: (status) => set({ status }),
       setError: (error) => set({ error }),
       clearError: () => set({ error: null }),
@@ -30,6 +34,7 @@ const useRoomStore = create<RoomState>()(
         set({
           username: '',
           roomCode: '',
+          gens: [],
           status: '',
           error: null,
         }),
