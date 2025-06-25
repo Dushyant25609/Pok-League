@@ -25,7 +25,7 @@ async function getPokedexData(page: number, limit: number) {
   }
 
   const data = await getPokemonList(page, limit);
-  await redis.set(cacheKey, JSON.stringify(data), { ex: 86400 });
+  await redis.set(cacheKey, JSON.stringify(data), { ex: 86400 }); // Cache for 5 minutes
 
   return data;
 }
