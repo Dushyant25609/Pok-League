@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.BASE_URL,
+  baseURL: process.env.BASE_URL || 'https://pokeleagueapi.kroww.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
