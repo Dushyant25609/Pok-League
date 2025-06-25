@@ -29,22 +29,24 @@ const FloatingNavbar = () => {
   };
 
   return (
-    <AnimatedBox
-      animation={dropAnimation}
-      className="transform  z-50 bg-white/10 shadow-lg rounded-full px-4 py-2 flex gap-4 backdrop-blur-md"
-    >
-      {navItems.map((item) => {
-        const isActive = activeTab === item.href.split('?')[0];
-        return (
-          <NavItems
-            key={item.name}
-            name={item.name}
-            isActive={isActive}
-            onClick={() => handleNavigation(item.href)}
-          />
-        );
-      })}
-    </AnimatedBox>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-md md:static md:translate-x-0 md:w-auto md:mt-4">
+      <AnimatedBox
+        animation={dropAnimation}
+        className="flex flex-col md:flex-row items-center justify-around gap-2 md:gap-4 px-4 py-2 bg-white/10 backdrop-blur-md shadow-lg rounded-2xl"
+      >
+        {navItems.map((item) => {
+          const isActive = activeTab === item.href.split('?')[0];
+          return (
+            <NavItems
+              key={item.name}
+              name={item.name}
+              isActive={isActive}
+              onClick={() => handleNavigation(item.href)}
+            />
+          );
+        })}
+      </AnimatedBox>
+    </div>
   );
 };
 

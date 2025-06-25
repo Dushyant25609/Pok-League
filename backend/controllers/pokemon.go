@@ -19,10 +19,10 @@ type PokemonResponse struct {
 }
 
 type PokemonStatsResponse struct{
-	ID        uint            `json:"pokemon_id"`
-    Name      string          `json:"name"`
-    Types     []string        `json:"types"`
-    Stats models.PokemonStats `json:"Stats"`
+	ID        uint            
+    Name      string          
+    Types     []string        
+    Stats models.PokemonStats
 }
 
 
@@ -267,17 +267,24 @@ func GetPokemonStats(c *gin.Context) {
 
 	if err := database.DB.
 		Model(&models.Pokemon{}).
-		Select("pokemons.*, pokemon_stats.battles_won, pokemon_stats.battles_lost, pokemon_stats.total_battles").
-		Joins("INNER JOIN pokemon_stats ON pokemon_stats.pokemon_id = pokemons.id").
+		Select(`
+			pokemons.*,
+			ps.battles_won,
+			ps.battles_lost,
+			ps.total_battles,
+			(CASE WHEN ps.total_battles = 0 THEN 0 ELSE ps.battles_won::float / ps.total_battles END) AS win_rate
+		`).
+		Joins("INNER JOIN pokemon_stats ps ON ps.pokemon_id = pokemons.id").
 		Preload("Types").
 		Preload("Stats").
-		Order("pokemon_stats.battles_won DESC").
+		Order("win_rate DESC, ps.battles_won DESC, ps.battles_lost ASC").
 		Limit(limit).
 		Offset(offset).
 		Find(&pokemons).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 
 	var response []PokemonStatsResponse
 	for _, p := range pokemons {

@@ -22,11 +22,11 @@ type Props = {
 
 const PerformanceStats = async ({ searchParams }: Props) => {
   const { limit, page } = await searchParams;
-  const limitInt = limit ? parseInt(limit) : 18;
+  const limitInt = limit ? parseInt(limit) : 15;
   const pageInt = page ? parseInt(page) : 1;
 
   if (isNaN(limitInt) || isNaN(pageInt) || limitInt <= 0 || pageInt <= 0) {
-    redirect('/league?limit=10&page=1');
+    redirect('/league?limit=15&page=1');
   }
 
   const Data: PokemonStatsResponse = await getPokemonStatsList(pageInt, limitInt);
@@ -49,12 +49,12 @@ const PerformanceStats = async ({ searchParams }: Props) => {
         </div>
         <div className="flex flex-col h-full overflow-y-scroll ">
           {Data.data &&
-            Data.data.map((pokemon) => {
+            Data.data.map((pokemon, index) => {
               return (
                 <LeagueDataRow
-                  key={pokemon.pokemon_id}
-                  id={pokemon.pokemon_id}
-                  name={pokemon.name}
+                  key={index}
+                  id={pokemon.ID}
+                  name={pokemon.Name}
                   wins={pokemon.Stats.BattlesWon}
                   loses={pokemon.Stats.BattlesLost}
                 />
@@ -62,7 +62,7 @@ const PerformanceStats = async ({ searchParams }: Props) => {
             })}
         </div>
         <div className="bg-zinc-600/ backdrop-blur-lg rounded-b-lg p-2">
-          <PaginationControl page={pageInt} totalPages={1} />
+          <PaginationControl page={pageInt} totalPages={Data.totalPages} />
         </div>
       </AnimatedBox>
     </AnimatedBox>

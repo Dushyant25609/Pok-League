@@ -96,7 +96,23 @@ export function OpponentUsedPokemons({ pokemons }: { pokemons: battlePokemonUsed
   );
 }
 
-export function DialogDisplay({ dialogs }: { dialogs: dialogMessage[] }) {
+export function DialogDisplay({
+  dialogs,
+  battleNumber = 0,
+  battleLength = 0,
+  onNext,
+  onPrevious,
+}: {
+  dialogs: dialogMessage[];
+  battleNumber?: number;
+  battleLength?: number;
+  onNext?: () => void;
+  onPrevious?: () => void;
+}) {
+  const [start, setStart] = useState(0);
+  const [end, setEnd] = useState(0);
+  const [narration, setNarration] = useState<dialogMessage[]>([]);
+
   const getDialogStyle = (type: string) => {
     switch (type) {
       case 'winner':
@@ -112,18 +128,89 @@ export function DialogDisplay({ dialogs }: { dialogs: dialogMessage[] }) {
       case 'dodge':
         return 'bg-yellow-500/30 border-yellow-500 text-yellow-200';
       case 'battle_start':
-        return 'bg-cyan-500/30 border-cyan-500 text-cyan-200';
+        return 'bg-cyan-500/30 font-bold border-cyan-500 text-cyan-200 text-center';
       default:
         return 'bg-gray-500/20 border-gray-500 text-white';
     }
   };
 
+  // Update start and end indices when battleNumber changes
+  useEffect(() => {
+    if (dialogs.length === 0) {
+      setStart(0);
+      setEnd(0);
+      setNarration([]);
+      return;
+    }
+
+    // Find the start and end indices for the current battle
+    let battleCount = 0;
+    let currentBattleStart = dialogs.length - 1;
+
+    for (let i = 0; i < dialogs.length; i++) {
+      if (dialogs[i].type === 'battle_start') {
+        if (battleCount === battleNumber) {
+          currentBattleStart = i;
+        }
+        battleCount++;
+      }
+    }
+
+    // If we're looking at the current battle (or if there's only one battle)
+    if (battleNumber === battleCount - 1 || battleCount === 0) {
+      setStart(currentBattleStart);
+      setEnd(dialogs.length);
+    } else {
+      // Find the end of this battle (start of next battle)
+      let nextBattleStart = dialogs.length;
+      for (let i = currentBattleStart + 1; i < dialogs.length; i++) {
+        if (dialogs[i].type === 'battle_start') {
+          nextBattleStart = i;
+          break;
+        }
+      }
+      setStart(currentBattleStart);
+      setEnd(nextBattleStart);
+    }
+  }, [battleNumber, dialogs]);
+
+  // Update narration when start and end change
+  useEffect(() => {
+    if (dialogs.length === 0) {
+      setNarration([]);
+      return;
+    }
+    setNarration(dialogs.slice(start, end));
+  }, [start, end, dialogs]);
+
   return (
     <Card className="w-full border-0 h-fit max-h-1/2 overflow-y-scroll p-4 text-white backdrop-blur-md bg-[#1e1e2f]/30 rounded-xl">
-      <CardTitle className="text-white">Match Dialog</CardTitle>
+      <div className="flex justify-between items-center mb-2">
+        <CardTitle className="text-white">Match Dialog</CardTitle>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPrevious}
+            disabled={battleNumber === 0 || !onPrevious}
+            className="text-black border-white/30 hover:bg-white/10"
+          >
+            Previous Battle
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNext}
+            disabled={battleNumber === battleLength - 1 || !onNext}
+            className="text-black border-white/30 hover:bg-white/10"
+          >
+            Next Battle
+          </Button>
+        </div>
+      </div>
       <CardContent className="transform w-full space-y-2">
-        {dialogs.length > 0 &&
-          dialogs.map((dialog, index) => (
+        {narration.length > 0 ? (
+          narration.map((dialog, index) => (
             <div
               key={index}
               className={cn(
@@ -134,7 +221,10 @@ export function DialogDisplay({ dialogs }: { dialogs: dialogMessage[] }) {
               <div className="font-semibold capitalize">{dialog.type}</div>
               <div>{dialog.text}</div>
             </div>
-          ))}
+          ))
+        ) : (
+          <div className="text-center text-gray-400 py-4">No dialog messages to display</div>
+        )}
       </CardContent>
     </Card>
   );
@@ -258,19 +348,19 @@ export const OpNextPokemon = ({ id, hp }: { id: number; hp: number }) => {
     <Card
       key={id}
       className={cn(
-        'p-2 w-1/3 z-0  items-center justify-center font-bold relative text-white border-0 aspect-square ',
+        'p-2 w-1/5 z-0  items-center justify-center font-bold relative text-white border-0 aspect-square ',
         hp > 70 ? 'bg-green-200/30' : hp > 30 ? 'bg-yellow-200/30' : 'bg-red-200/30',
         hp == 0 ? 'brightness-10' : ''
       )}
     >
       <span
         className={cn(
-          'absolute bottom-0 right-0 w-full rounded-xl',
+          'absolute text-white bottom-0 right-0 w-full rounded-xl',
           hp > 70 ? 'bg-green-500/40' : hp > 30 ? 'bg-yellow-500/40' : 'bg-red-500/40'
         )}
         style={{ height: `${hp}%` }}
       />
-      <span>Next pokemon</span>
+      <span className="z-20">Next pokemon</span>
       <PokemonImage className="z-20" id={id} />
       <div className="text-center text-sm z-20">HP: {hp}%</div>
     </Card>

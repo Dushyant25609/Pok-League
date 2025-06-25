@@ -1,3 +1,4 @@
+// Updated battleArena.tsx with mobile responsiveness
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -24,16 +25,14 @@ import {
 } from './battleComponents';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 
-const Waiting = () => {
-  return (
-    <div className="fixed h-screen w-screen top-0 left-0 z-50 bg-black/30 backdrop-blur-md flex flex-col items-center justify-center text-white px-4">
-      <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-red-600 border-opacity-75 mb-6" />
-      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2">
-        Waiting for opponent to Submit their team...
-      </h2>
-    </div>
-  );
-};
+const Waiting = () => (
+  <div className="fixed h-screen w-screen top-0 left-0 z-50 bg-black/30 backdrop-blur-md flex flex-col items-center justify-center text-white px-4">
+    <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-red-600 border-opacity-75 mb-6" />
+    <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2">
+      Waiting for opponent to Submit their team...
+    </h2>
+  </div>
+);
 
 interface Props {
   roomId: string;
@@ -67,17 +66,17 @@ const BattleAreana = ({ roomId }: Props) => {
     pokemon1_id: 0,
     pokemon2_id: 0,
   });
+  const [battleNumber, setBattleNumber] = useState<number>(0);
+  const [battleLength, setBattleLength] = useState<number>(0);
   const dialogRef = useRef<dialogMessage[]>([]);
   const router = useRouter();
   const roomSocket = useSocket({ route: SocketEvents.Battle.replace(':roomId', roomId) });
 
   const sendPokemon = (pokemon_id: number) => {
     if (!roomSocket?.current || roomSocket?.current.readyState !== WebSocket.OPEN) return;
-    setDialogMessages([]);
-    dialogRef.current = [];
     roomSocket?.current.send(JSON.stringify({ username, pokemon_id, event }));
   };
-  console.log('dialog', dialogMessages);
+
   useEffect(() => {
     if (!roomSocket?.current) return;
 
@@ -109,6 +108,7 @@ const BattleAreana = ({ roomId }: Props) => {
               ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
               dialogRef.current = updated;
+              if (prev.length === 0) setBattleNumber(battleLength);
               return updated;
             });
             break;
@@ -118,10 +118,7 @@ const BattleAreana = ({ roomId }: Props) => {
             setInBattle(false);
             setResult({ winner: data.winner, pokemon: data.pokemon, hp: data.hp });
             setShowResultMessage(true);
-            setEvent('battle_result');
-            setInBattle(false);
-
-            // 1) bump battleNumber based on its latest value
+            setBattleNumber(battleLength);
 
             if (data.winner === username) {
               setWaitingOpponent(true);
@@ -131,14 +128,12 @@ const BattleAreana = ({ roomId }: Props) => {
                 )
               );
               setOpPokemonUsed((prev) => {
-                const alreadyExists = prev.find((poke) => poke.pokemon_id === data.loserPokemon);
-                if (alreadyExists) {
-                  return prev.map((poke) =>
-                    poke.pokemon_id === data.loserPokemon ? { ...poke, hp: 0 } : poke
-                  );
-                } else {
-                  return [...prev, { pokemon_id: data.loserPokemon, hp: 0 }];
-                }
+                const exists = prev.find((poke) => poke.pokemon_id === data.loserPokemon);
+                return exists
+                  ? prev.map((poke) =>
+                      poke.pokemon_id === data.loserPokemon ? { ...poke, hp: 0 } : poke
+                    )
+                  : [...prev, { pokemon_id: data.loserPokemon, hp: 0 }];
               });
               toast.success('You win!');
             } else {
@@ -148,21 +143,14 @@ const BattleAreana = ({ roomId }: Props) => {
                 )
               );
               setOpPokemonUsed((prev) => {
-                const alreadyExists = prev.find((poke) => poke.pokemon_id === data.winnerPokemon);
-                if (alreadyExists) {
-                  return prev.map((poke) =>
-                    poke.pokemon_id === data.winnerPokemon ? { ...poke, hp: data.hp } : poke
-                  );
-                } else {
-                  return [...prev, { pokemon_id: data.winnerPokemon, hp: data.hp }];
-                }
+                const exists = prev.find((poke) => poke.pokemon_id === data.winnerPokemon);
+                return exists
+                  ? prev.map((poke) =>
+                      poke.pokemon_id === data.winnerPokemon ? { ...poke, hp: data.hp } : poke
+                    )
+                  : [...prev, { pokemon_id: data.winnerPokemon, hp: data.hp }];
               });
-              setBattlePokemon({
-                winner: '',
-                loser: '',
-                opPokemon: 0,
-                hp: 0,
-              });
+              setBattlePokemon({ winner: '', loser: '', opPokemon: 0, hp: 0 });
               toast.error('You lose!');
             }
             break;
@@ -181,6 +169,7 @@ const BattleAreana = ({ roomId }: Props) => {
               pokemon1_id: data.p1_id,
               pokemon2_id: data.p2_id,
             });
+            setBattleLength((prev) => prev + 1);
             break;
         }
       } catch (err) {
@@ -197,7 +186,7 @@ const BattleAreana = ({ roomId }: Props) => {
   }, [pokemonUsed, username, roomSocket?.current]);
 
   return (
-    <div className="flex justify-between gap-4 text-white px-4 w-full h-4/5 py-4">
+    <div className="flex flex-col lg:flex-row justify-between gap-4 text-white px-2 sm:px-4 w-full h-full py-2 sm:py-4 overflow-y-auto">
       {waitingOpponent && <Waiting />}
 
       <SelectPokemonDialog
@@ -208,13 +197,19 @@ const BattleAreana = ({ roomId }: Props) => {
       />
 
       <div className="w-full space-y-4">
-        <DialogDisplay dialogs={dialogMessages} />
+        <DialogDisplay
+          dialogs={dialogMessages}
+          battleNumber={battleNumber}
+          battleLength={battleLength}
+          onNext={() => setBattleNumber((prev) => Math.min(prev + 1, battleLength - 1))}
+          onPrevious={() => setBattleNumber((prev) => Math.max(prev - 1, 0))}
+        />
         {battlePokemon.opPokemon !== 0 && (
           <OpNextPokemon hp={battlePokemon.hp} id={battlePokemon.opPokemon} />
         )}
       </div>
 
-      <Card className="bg-[#1e1e2f]/30 backdrop-blur-md border-0 text-white">
+      <Card className="bg-[#1e1e2f]/30 backdrop-blur-md border-0 text-white w-full sm:w-auto">
         <CardContent className="flex flex-col gap-3">
           <CardTitle>Opponent Pokemon</CardTitle>
           {opPokemonUsed.length !== 0 && <OpponentUsedPokemons pokemons={opPokemonUsed} />}
@@ -227,6 +222,7 @@ const BattleAreana = ({ roomId }: Props) => {
           onClear={() => setShowResultMessage(false)}
         />
       )}
+
       {inBattle && (
         <DuringBattle
           pokemon1={inBattlePokemon.pokemon1_name}
