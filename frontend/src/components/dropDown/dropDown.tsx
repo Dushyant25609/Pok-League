@@ -4,8 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Gen } from '@/constants/generation';
 
 interface DropDownProps {
-  limit: Number;
-  gen: Number;
+  limit: number;
+  gen: number;
 }
 
 const DropDown: FC<DropDownProps> = ({ limit, gen }) => {
