@@ -2,7 +2,7 @@
 
 const Footer = () => {
   return (
-    <footer className="w-full absolute bottom-0 mt-auto bg-gray-900 text-gray-400 text-sm px-6 py-4 text-center">
+    <footer className="w-full bg-gray-900 text-gray-400 text-xs px-6 py-3 text-center">
       <p className="mb-2">
         Pokémon and Pokémon GO are copyright of{' '}
         <span className="text-white">The Pokémon Company</span>,{' '}
