@@ -93,6 +93,7 @@ const BattleAreana = ({ roomId }: Props) => {
               hp: data.hp,
             });
             setWaitingOpponent(false);
+            // Ensure dialog messages are not cleared here
             break;
 
           case 'dialog_update':
@@ -169,7 +170,11 @@ const BattleAreana = ({ roomId }: Props) => {
               pokemon1_id: data.p1_id,
               pokemon2_id: data.p2_id,
             });
-            setBattleLength((prev) => prev + 1);
+            setBattleLength((prev) => {
+              const newLength = prev + 1;
+              setBattleNumber(newLength - 1); // Set battleNumber to the index of the new battle
+              return newLength;
+            });
             break;
         }
       } catch (err) {
