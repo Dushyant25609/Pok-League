@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-image bg-cover bg-center h-screen bg-no-repeat flex flex-col justify-center">
+      <body className="bg-image bg-cover bg-center h-screen bg-no-repeat flex flex-col justify-between">
         <BackgroundOverlay />
         <Toaster />
         {children}
