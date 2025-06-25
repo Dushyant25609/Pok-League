@@ -46,6 +46,9 @@ async function getPokedexGenData(page: number, limit: number, gen: number) {
 
 export const metadata: Metadata = {
   title: 'Pokédex',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 const Pokedex = async ({

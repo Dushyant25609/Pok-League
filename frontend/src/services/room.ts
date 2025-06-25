@@ -19,6 +19,8 @@ export const createBattleRoom = async (
       allow_mythical,
       team_selection_time,
     });
+    console.log(response);
+    console.log(api);
     return response.data;
   } catch (error) {
     console.error('Error fetching Pokemon list:', error);

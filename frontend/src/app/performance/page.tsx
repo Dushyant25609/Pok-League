@@ -11,6 +11,9 @@ import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Pokemon Performance Stats',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 const PerformanceStats = async ({
