@@ -13,14 +13,11 @@ export const metadata: Metadata = {
   title: 'Pokemon Performance Stats',
 };
 
-type Props = {
-  searchParams: {
-    limit?: string;
-    page?: string;
-  };
-};
-
-const PerformanceStats = async ({ searchParams }: Props) => {
+const PerformanceStats = async ({
+  searchParams,
+}: {
+  searchParams: Promise<{ limit?: string; page?: string }>;
+}) => {
   const { limit, page } = await searchParams;
   const limitInt = limit ? parseInt(limit) : 15;
   const pageInt = page ? parseInt(page) : 1;

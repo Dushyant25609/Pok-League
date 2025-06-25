@@ -71,7 +71,7 @@ export async function buildGenPokemonMap(): Promise<GenerationMap> {
         if (genNum >= 1 && genNum <= 9) {
           map[genNum].push(id);
         }
-        // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         // silently fail
       }

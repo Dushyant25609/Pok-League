@@ -44,19 +44,15 @@ async function getPokedexGenData(page: number, limit: number, gen: number) {
   return data;
 }
 
-type Props = {
-  searchParams: {
-    limit?: string;
-    page?: string;
-    gen?: string;
-  };
-};
-
 export const metadata: Metadata = {
   title: 'Pokédex',
 };
 
-const Pokedex = async ({ searchParams }: Props) => {
+const Pokedex = async ({
+  searchParams,
+}: {
+  searchParams: Promise<{ limit?: string; page?: string; gen?: string }>;
+}) => {
   const { limit, page, gen } = await searchParams;
   const limitInt = limit ? parseInt(limit) : 18;
   const pageInt = page ? parseInt(page) : 1;

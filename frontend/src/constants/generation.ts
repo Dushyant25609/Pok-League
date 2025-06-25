@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 export enum Generation {
   I = 1,
   II,
