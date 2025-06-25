@@ -21,26 +21,25 @@ func init() {
 
 func main() {
 	r := gin.Default()
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Welcome to PokeLeague Backend",
-		})
-	})
+
+	// ✅ CORS Middleware — LET THIS HANDLE OPTIONS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://pokeleague.kroww.com"}, // Replace with your frontend origin
+		AllowOrigins:     []string{"https://pokeleague.kroww.com"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	r.OPTIONS("/*path", func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "https://pokeleague.kroww.com")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		c.Status(http.StatusOK)
+
+	// ✅ Example health check
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Welcome to PokeLeague Backend"})
 	})
 
+	// ✅ Your actual API routes
 	routes.IndexRoutes(r)
+
+	// Start server
 	r.Run()
 }
