@@ -1,13 +1,15 @@
 package main
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/Dushyant25609/Pok-League/config.go"
 	"github.com/Dushyant25609/Pok-League/database"
 	"github.com/Dushyant25609/Pok-League/routes"
-	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 func init() {
@@ -32,6 +34,13 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+	r.OPTIONS("/*path", func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "https://pokeleague.kroww.com")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Status(http.StatusOK)
+	})
+
 	routes.IndexRoutes(r)
 	r.Run()
 }
