@@ -1,6 +1,6 @@
 # ⚔️ Pok-League — Full Stack Multiplayer Pokémon Battle Platform
 
-![Tech Stack](https://img.shields.io/badge/Stack-MERN%20%2B%20Go%20%2B%20WebSockets-blueviolet)
+![Tech Stack](https://img.shields.io/badge/Stack-NEXT%20%2B%20Go%20%2B%20WebSockets-blueviolet)
 ![Status](https://img.shields.io/badge/Status-Under%20Development-yellow)
 ![License](https://img.shields.io/github/license/Dushyant25609/Pok-League)
 ![PRs](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
