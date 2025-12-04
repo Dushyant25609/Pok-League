@@ -11,36 +11,17 @@ import PaginationControl from '@/components/buttons/paginationControl';
 import NavTitle from '@/components/title/nav';
 import DropDown from '@/components/dropDown/dropDown';
 import FloatingNavbar from '@/components/navbar/nav';
-import { redis } from '@/lib/redis';
 import AnimatedBox from '@/components/animation/box';
 import { dropAnimation, liftAnimation } from '@/motion/axis';
 import { NormalAnimation } from '@/motion/opacity';
 
 async function getPokedexData(page: number, limit: number) {
-  const cacheKey = `pokedex:data:page:${page}:limit:${limit}`;
-  const cached = await redis.get(cacheKey);
-
-  if (cached) {
-    return cached as PokemonResponse;
-  }
-
   const data = await getPokemonList(page, limit);
-  await redis.set(cacheKey, JSON.stringify(data), { ex: 86400 }); // Cache for 5 minutes
-
   return data;
 }
 
 async function getPokedexGenData(page: number, limit: number, gen: number) {
-  const cacheKey = `pokedexGen:data:page:${page}:limit:${limit}`;
-  const cached = await redis.get(cacheKey);
-
-  if (cached) {
-    return cached as PokemonResponse;
-  }
-
   const data = await getPokemonByGen(page, limit, gen);
-  await redis.set(cacheKey, JSON.stringify(data), { ex: 86400 }); // Cache for 5 minutes
-
   return data;
 }
 
